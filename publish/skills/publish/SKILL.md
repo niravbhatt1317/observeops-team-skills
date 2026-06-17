@@ -81,6 +81,25 @@ Only continue once `gh auth status` reports they are logged in.
      real app sits in a subfolder is the classic case: build the **subfolder**,
      or GitHub Pages will just render the README.
    Remember the build directory (call it `<APP_DIR>`) for Step 5.
+5. **Detect the build OUTPUT folder** (build apps only). Do NOT assume `dist` —
+   it varies by framework. Determine `<OUT_DIR>` (relative to `<APP_DIR>`):
+   - **Vite / Vue** → `dist`
+   - **Create-React-App** → `build`
+   - **Angular** → `dist/<project-name>` (read the project name from
+     `angular.json` → `projects.<name>.architect.build.options.outputPath`)
+   - **Gatsby** → `public`
+   - **Astro** → `dist`
+   - **SvelteKit** → `build` (requires `@sveltejs/adapter-static`)
+   - **Next.js** → `out` (requires `output: 'export'` in `next.config`)
+   To confirm, check `<APP_DIR>/package.json` for the framework, and any config
+   file (`vite.config.*`, `angular.json`, `next.config.*`, `astro.config.*`) for
+   an explicit output path — the config wins over the default above.
+   ⚠️ **SSR frameworks (Next.js, SvelteKit, Nuxt) do not work on GitHub Pages
+   unless configured for static export** (Pages serves static files only, not a
+   running server). If you detect one without static-export config, tell the
+   teammate what to add (e.g. Next: `output: 'export'`; SvelteKit:
+   `adapter-static`) before deploying, or the site won't render.
+   Remember `<OUT_DIR>` for Step 5.
 
 ---
 
@@ -197,16 +216,18 @@ Get the owner/repo: `gh repo view --json nameWithOwner -q .nameWithOwner`.
 
    - **Build app (Vite/Vue/React, etc.)** — build inside `<APP_DIR>` (from
      Step 1.4 — use `.` if the app is at the repo root), then upload that
-     folder's `dist`. **Two things are essential or the page renders blank /
-     shows the README:**
+     framework's output folder `<OUT_DIR>` (from Step 1.5 — NOT always `dist`).
+     **Two things are essential or the page renders blank / shows the README:**
        1. Set the build **base path** to `/<repo>/` so assets resolve. For Vite,
           add `base: '/<repo>/'` to `<APP_DIR>/vite.config.js` (or `.ts`). For
           Create-React-App, set `"homepage": "/<repo>/"` in its `package.json`.
+          (Angular: `--base-href=/<repo>/`; Astro: `base: '/<repo>/'`.)
        2. Point the workflow at `<APP_DIR>` for the build and at
-          `<APP_DIR>/dist` for the upload.
+          `<APP_DIR>/<OUT_DIR>` for the upload.
 
-     Replace `<APP_DIR>` below with the real folder (e.g. `app`). If the app is
-     at the root, set `working-directory: .` and `path: dist`.
+     Replace `<APP_DIR>` and `<OUT_DIR>` below with the real values (e.g. `app`
+     and `dist`). If the app is at the root, set `working-directory: .` and
+     `path: <OUT_DIR>`.
      ```yaml
      name: Deploy to GitHub Pages
      on:
@@ -238,7 +259,7 @@ Get the owner/repo: `gh repo view --json nameWithOwner -q .nameWithOwner`.
                enablement: true
            - uses: actions/upload-pages-artifact@v3
              with:
-               path: <APP_DIR>/dist
+               path: <APP_DIR>/<OUT_DIR>
        deploy:
          needs: build
          environment:
