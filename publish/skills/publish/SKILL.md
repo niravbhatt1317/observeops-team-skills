@@ -172,6 +172,8 @@ Get the owner/repo: `gh repo view --json nameWithOwner -q .nameWithOwner`.
          steps:
            - uses: actions/checkout@v4
            - uses: actions/configure-pages@v5
+             with:
+               enablement: true
            - uses: actions/upload-pages-artifact@v3
              with:
                path: .
@@ -206,6 +208,8 @@ Get the owner/repo: `gh repo view --json nameWithOwner -q .nameWithOwner`.
            - run: npm ci
            - run: npm run build
            - uses: actions/configure-pages@v5
+             with:
+               enablement: true
            - uses: actions/upload-pages-artifact@v3
              with:
                path: dist
@@ -221,10 +225,14 @@ Get the owner/repo: `gh repo view --json nameWithOwner -q .nameWithOwner`.
      ```
    Tell the teammate an extra file (the workflow) was added, and why.
 
-2. **Point Pages at GitHub Actions** (idempotent — ignore "already exists"):
+   The `enablement: true` on `configure-pages` makes the **workflow itself**
+   turn Pages on and set the source to "GitHub Actions" — so this works even if
+   the `gh` CLI is unavailable.
+
+2. **Best-effort: also point Pages at Actions via API** (harmless if it fails,
+   since the workflow self-enables — ignore any error):
    ```bash
-   gh api -X POST repos/{owner}/{repo}/pages -f build_type=workflow 2>/dev/null || \
-   gh api -X PUT  repos/{owner}/{repo}/pages -f build_type=workflow
+   gh api -X POST repos/{owner}/{repo}/pages -f build_type=workflow 2>/dev/null || true
    ```
 
 3. **Commit and push the workflow** so the deploy actually runs:
@@ -235,6 +243,12 @@ Get the owner/repo: `gh repo view --json nameWithOwner -q .nameWithOwner`.
    ```
 
 4. Deploy progress is visible at `https://github.com/<owner>/<repo>/actions`.
+
+**If the page is still 404 after a few minutes:** the first run occasionally
+needs Pages enabled by hand. Tell the teammate to open
+`https://github.com/<owner>/<repo>/settings/pages`, set **Source → GitHub
+Actions**, then re-run the latest workflow from the Actions tab. After that it
+publishes normally on every push.
 
 ---
 
