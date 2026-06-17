@@ -62,11 +62,25 @@ Only continue once `gh auth status` reports they are logged in.
 2. Is it already a git repo? `git rev-parse --is-inside-work-tree` — if not,
    run `git init -b main`.
 3. **Detect the project type** (this decides how to deploy):
-   - **Static site** — there's an `index.html` and no build step. Deploys
-     directly from the repo.
+   - **Static site** — there's an `index.html` at the repo root and no build
+     step. Deploys directly from the repo.
    - **Build app** — there's a `package.json` with a `build` script (Vite,
      React, Vue, etc.). Needs a build + a Pages GitHub Action.
    Remember which one; you'll use it in Step 5.
+4. **Find the app directory.** The `package.json` with the `build` script is
+   often NOT at the repo root — it may live in a subfolder like `app/`,
+   `frontend/`, `web/`, or `client/`. Search for it:
+   ```bash
+   find . -maxdepth 2 -name package.json -not -path '*/node_modules/*'
+   ```
+   - If exactly one is found, that folder is the **build directory** (could be
+     `.` or a subfolder like `app`).
+   - If several are found (a monorepo), **ask the teammate which folder is the
+     site to publish** — don't guess.
+   - The root having only `README.md` / markdown and no `index.html` while the
+     real app sits in a subfolder is the classic case: build the **subfolder**,
+     or GitHub Pages will just render the README.
+   Remember the build directory (call it `<APP_DIR>`) for Step 5.
 
 ---
 
@@ -181,9 +195,18 @@ Get the owner/repo: `gh repo view --json nameWithOwner -q .nameWithOwner`.
              id: deployment
      ```
 
-   - **Build app (Vite/Vue/React, etc.)** — build first, then upload the output
-     folder (`dist`). Also set the build **base path** to `/<repo>/` so assets
-     resolve (e.g. Vite: `base: '/<repo>/'` in `vite.config`):
+   - **Build app (Vite/Vue/React, etc.)** — build inside `<APP_DIR>` (from
+     Step 1.4 — use `.` if the app is at the repo root), then upload that
+     folder's `dist`. **Two things are essential or the page renders blank /
+     shows the README:**
+       1. Set the build **base path** to `/<repo>/` so assets resolve. For Vite,
+          add `base: '/<repo>/'` to `<APP_DIR>/vite.config.js` (or `.ts`). For
+          Create-React-App, set `"homepage": "/<repo>/"` in its `package.json`.
+       2. Point the workflow at `<APP_DIR>` for the build and at
+          `<APP_DIR>/dist` for the upload.
+
+     Replace `<APP_DIR>` below with the real folder (e.g. `app`). If the app is
+     at the root, set `working-directory: .` and `path: dist`.
      ```yaml
      name: Deploy to GitHub Pages
      on:
@@ -200,19 +223,22 @@ Get the owner/repo: `gh repo view --json nameWithOwner -q .nameWithOwner`.
      jobs:
        build:
          runs-on: ubuntu-latest
+         defaults:
+           run:
+             working-directory: <APP_DIR>
          steps:
            - uses: actions/checkout@v4
            - uses: actions/setup-node@v4
              with:
                node-version: 20
-           - run: npm ci
+           - run: npm ci || npm install
            - run: npm run build
            - uses: actions/configure-pages@v5
              with:
                enablement: true
            - uses: actions/upload-pages-artifact@v3
              with:
-               path: dist
+               path: <APP_DIR>/dist
        deploy:
          needs: build
          environment:
@@ -223,7 +249,8 @@ Get the owner/repo: `gh repo view --json nameWithOwner -q .nameWithOwner`.
            - uses: actions/deploy-pages@v4
              id: deployment
      ```
-   Tell the teammate an extra file (the workflow) was added, and why.
+   Tell the teammate an extra file (the workflow) was added, and why. Confirm the
+   base path was set, or assets will 404 and the page will look broken/blank.
 
    The `enablement: true` on `configure-pages` makes the **workflow itself**
    turn Pages on and set the source to "GitHub Actions" — so this works even if
