@@ -108,6 +108,28 @@ the repo name and that the repo can be public (free GitHub Pages requires it).
 > Don't have the GitHub CLI? Install it: macOS `brew install gh` · Windows
 > `winget install GitHub.cli` · Linux → https://cli.github.com
 
+### ✅ After you publish — check it actually rendered
+
+A plain HTML page goes live almost instantly. A **build app (Vite / React / Vue)
+takes a minute and has more moving parts**, so confirm it before sharing:
+
+1. **Open the live URL.** You should see your *app*, not a page of text. If you
+   see the README rendered as a webpage, the app wasn't built/published — tell
+   Claude "the live page is showing the README, not my app" and it'll fix the
+   deploy.
+2. **Blank white page?** That's almost always a missing **base path**. The app
+   must be built with base `/<repo-name>/`. Tell Claude "the page is blank,
+   check the Vite base path" — it sets `base: '/<repo>/'` in the Vite config.
+3. **Still 404 after a few minutes?** Pages source isn't set. Go to
+   **Settings → Pages → Source → GitHub Actions**, then re-run the latest run
+   from the **Actions** tab.
+4. **Red ✗ in the Actions tab?** Open the failed run, copy the red error lines,
+   and paste them to Claude — it'll patch the workflow.
+
+> Tip: if your app lives in a subfolder (e.g. `app/`), make sure `/publish` is
+> building *that* folder — Claude detects this, but double-check the live page
+> shows the app.
+
 ---
 
 ## 🙋 No GitHub CLI / prefer manual install?
