@@ -12,6 +12,7 @@
     {
       "name": "publish",
       "source": "./publish",
+      "version": "0.2.0",
       "description": "Push your project to GitHub and deploy it live on GitHub Pages, then return the shareable URL."
     }
   ]
