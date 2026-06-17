@@ -285,3 +285,7 @@ If it was the first deploy, remind them it may take a minute to appear.
 - Always confirm the repo **name** before creating it.
 - If a `gh` command fails, show the error in plain language and suggest the fix
   (usually `! gh auth login` or installing `gh`) rather than retrying blindly.
+- The **first** time you `git push`, Claude Code will ask the teammate for
+  permission. Tell them: if they pick the **"Yes, and don't ask again for git
+  push"** option, they'll never be prompted to push again — on any project. This
+  is the one-time, no-command way to make `/publish` frictionless going forward.

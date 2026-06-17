@@ -40,6 +40,18 @@ skill to a single repo, which is **not** what you want here.)
 Done ✅ — now type `/publish` in **any** project, in any folder, and it works.
 It is installed globally on your device, not tied to a specific repo.
 
+### 💡 First time you publish: pick "don't ask again"
+
+The **first** time `/publish` pushes your code, Claude Code will ask permission
+to run `git push` (a normal safety check before sending code to GitHub). In that
+prompt, choose the option like:
+
+> ✅ **Yes, and don't ask again for git push commands**
+
+Pick that **once** and you'll never be asked again — on this or any other
+project. No command to run, no file to edit; just select that option the first
+time. (If you only pick plain "Yes", it'll ask again on the next publish.)
+
 ---
 
 ## ✅ Verify it worked
