@@ -26,7 +26,16 @@ Open Claude Code and run these two commands. Each fenced block below has a
 /plugin install publish
 ```
 
-**3. Restart Claude Code.**
+**3. Choose the install scope.** Claude Code will ask *where* to install it and
+show three options. **Select the first one:**
+
+> ▸ **Install for you (user scope)**  ← pick this one, then press **Enter**
+
+This makes `/publish` work **globally — in every project and folder** on your
+device. (The other two options — *project scope* and *local scope* — limit the
+skill to a single repo, which is **not** what you want here.)
+
+**4. Restart Claude Code.**
 
 Done ✅ — now type `/publish` in **any** project, in any folder, and it works.
 It is installed globally on your device, not tied to a specific repo.
