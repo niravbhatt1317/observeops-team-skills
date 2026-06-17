@@ -138,26 +138,103 @@ Only continue once `gh auth status` reports they are logged in.
 
 ---
 
-## Step 5 — Enable GitHub Pages
+## Step 5 — Set up GitHub Pages (via GitHub Actions)
+
+Deploy through a **GitHub Actions workflow for BOTH static and build projects** —
+it's the most reliable method. Skip this whole step if
+`.github/workflows/deploy.yml` already exists (a previous run created it) —
+just continue.
 
 Get the owner/repo: `gh repo view --json nameWithOwner -q .nameWithOwner`.
 
-- **Static site:** enable Pages served from the `main` branch root:
-  ```bash
-  gh api -X POST repos/{owner}/{repo}/pages \
-    -f source.branch=main -f source.path=/ 2>/dev/null || \
-  gh api -X PUT repos/{owner}/{repo}/pages \
-    -f source.branch=main -f source.path=/
-  ```
-- **Build app:** create `.github/workflows/deploy.yml` that builds and deploys
-  to Pages (use the official `actions/deploy-pages` flow), set the repo's Pages
-  source to **GitHub Actions** (`gh api -X POST repos/{owner}/{repo}/pages
-  -f build_type=workflow`), commit & push the workflow. For Vite/Vue, also set
-  the build **base path** to `/<repo>/` so assets load correctly. Explain this
-  to the teammate so they know why an extra file appeared.
+1. **Create `.github/workflows/deploy.yml`** based on the project type from Step 1.
 
-If Pages is already enabled (API returns 409/Pages exists), that's fine —
-continue.
+   - **Static site** — upload the repo as-is:
+     ```yaml
+     name: Deploy to GitHub Pages
+     on:
+       push:
+         branches: [main]
+       workflow_dispatch:
+     permissions:
+       contents: read
+       pages: write
+       id-token: write
+     concurrency:
+       group: pages
+       cancel-in-progress: false
+     jobs:
+       deploy:
+         environment:
+           name: github-pages
+           url: ${{ steps.deployment.outputs.page_url }}
+         runs-on: ubuntu-latest
+         steps:
+           - uses: actions/checkout@v4
+           - uses: actions/configure-pages@v5
+           - uses: actions/upload-pages-artifact@v3
+             with:
+               path: .
+           - uses: actions/deploy-pages@v4
+             id: deployment
+     ```
+
+   - **Build app (Vite/Vue/React, etc.)** — build first, then upload the output
+     folder (`dist`). Also set the build **base path** to `/<repo>/` so assets
+     resolve (e.g. Vite: `base: '/<repo>/'` in `vite.config`):
+     ```yaml
+     name: Deploy to GitHub Pages
+     on:
+       push:
+         branches: [main]
+       workflow_dispatch:
+     permissions:
+       contents: read
+       pages: write
+       id-token: write
+     concurrency:
+       group: pages
+       cancel-in-progress: false
+     jobs:
+       build:
+         runs-on: ubuntu-latest
+         steps:
+           - uses: actions/checkout@v4
+           - uses: actions/setup-node@v4
+             with:
+               node-version: 20
+           - run: npm ci
+           - run: npm run build
+           - uses: actions/configure-pages@v5
+           - uses: actions/upload-pages-artifact@v3
+             with:
+               path: dist
+       deploy:
+         needs: build
+         environment:
+           name: github-pages
+           url: ${{ steps.deployment.outputs.page_url }}
+         runs-on: ubuntu-latest
+         steps:
+           - uses: actions/deploy-pages@v4
+             id: deployment
+     ```
+   Tell the teammate an extra file (the workflow) was added, and why.
+
+2. **Point Pages at GitHub Actions** (idempotent — ignore "already exists"):
+   ```bash
+   gh api -X POST repos/{owner}/{repo}/pages -f build_type=workflow 2>/dev/null || \
+   gh api -X PUT  repos/{owner}/{repo}/pages -f build_type=workflow
+   ```
+
+3. **Commit and push the workflow** so the deploy actually runs:
+   ```bash
+   git add .github/workflows/deploy.yml
+   git commit -m "Add GitHub Pages deployment"
+   git push
+   ```
+
+4. Deploy progress is visible at `https://github.com/<owner>/<repo>/actions`.
 
 ---
 
