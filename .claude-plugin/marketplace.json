@@ -1,0 +1,12 @@
+{
+  "version": "1",
+  "title": "ObserveOps Team Skills",
+  "description": "Shared Claude Code skills for the ObserveOps / Design System team.",
+  "plugins": [
+    {
+      "name": "publish",
+      "description": "Push your project to GitHub and deploy it live on GitHub Pages, then return the shareable URL.",
+      "source": "./publish"
+    }
+  ]
+}

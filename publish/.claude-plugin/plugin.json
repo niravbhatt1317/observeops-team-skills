@@ -1,0 +1,6 @@
+{
+  "name": "publish",
+  "version": "0.1.0",
+  "description": "Push your project to GitHub and deploy it live on GitHub Pages, then return the shareable URL.",
+  "author": "Nirav Bhatt <nirav.bhatt@motadata.com>"
+}
