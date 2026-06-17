@@ -85,8 +85,12 @@ Only continue once `gh auth status` reports they are logged in.
    it varies by framework. Determine `<OUT_DIR>` (relative to `<APP_DIR>`):
    - **Vite / Vue** → `dist`
    - **Create-React-App** → `build`
-   - **Angular** → `dist/<project-name>` (read the project name from
-     `angular.json` → `projects.<name>.architect.build.options.outputPath`)
+   - **Angular** → `dist/<project-name>/browser` for the modern `application`
+     builder (Angular 17+, the default for new apps); `dist/<project-name>` for
+     the old `browser` builder. Check `angular.json` →
+     `projects.<name>.architect.build.builder`: if it ends in `:application`,
+     the publishable files (incl. `index.html`) are in a **`browser/`
+     subfolder**. (Project name + `outputPath` are in the same `build` block.)
    - **Gatsby** → `public`
    - **Astro** → `dist`
    - **SvelteKit** → `build` (requires `@sveltejs/adapter-static`)
@@ -99,6 +103,14 @@ Only continue once `gh auth status` reports they are logged in.
    running server). If you detect one without static-export config, tell the
    teammate what to add (e.g. Next: `output: 'export'`; SvelteKit:
    `adapter-static`) before deploying, or the site won't render.
+   **Most reliable check — build once locally and look for `index.html`:**
+   ```bash
+   (cd <APP_DIR> && npm ci || npm install) && (cd <APP_DIR> && npm run build)
+   find <APP_DIR> -name index.html -not -path '*/node_modules/*'
+   ```
+   The folder that actually contains the built `index.html` IS `<APP_DIR>/<OUT_DIR>`.
+   Trust this over the table above — frameworks change their defaults (e.g.
+   Angular's `dist/<name>/browser`), and the built `index.html` never lies.
    Remember `<OUT_DIR>` for Step 5.
 
 ---
@@ -273,24 +285,37 @@ Get the owner/repo: `gh repo view --json nameWithOwner -q .nameWithOwner`.
    Tell the teammate an extra file (the workflow) was added, and why. Confirm the
    base path was set, or assets will 404 and the page will look broken/blank.
 
-   The `enablement: true` on `configure-pages` makes the **workflow itself**
-   turn Pages on and set the source to "GitHub Actions" — so this works even if
-   the `gh` CLI is unavailable.
+   ⚠️ `enablement: true` on `configure-pages` is only a fallback — on a
+   brand-new repo the workflow's own token usually **cannot** create the Pages
+   site (it fails with "Resource not accessible by integration"). The reliable
+   path is enabling Pages with your `gh` auth in step 2.
 
-2. **Best-effort: also point Pages at Actions via API** (harmless if it fails,
-   since the workflow self-enables — ignore any error):
+2. **Enable Pages with source = GitHub Actions — REQUIRED, via `gh` (your auth
+   has the admin rights the workflow token lacks):**
    ```bash
-   gh api -X POST repos/{owner}/{repo}/pages -f build_type=workflow 2>/dev/null || true
+   gh api -X POST repos/{owner}/{repo}/pages -f build_type=workflow 2>/dev/null || \
+   gh api -X PUT  repos/{owner}/{repo}/pages -f build_type=workflow 2>/dev/null || true
    ```
+   Verify it took: `gh api repos/{owner}/{repo}/pages -q .build_type` should
+   print `workflow`. (If `gh` is unavailable, the teammate must enable it by
+   hand — see the 404 note below.)
 
-3. **Commit and push the workflow** so the deploy actually runs:
+3. **Commit and push the workflow:**
    ```bash
    git add .github/workflows/deploy.yml
    git commit -m "Add GitHub Pages deployment"
    git push
    ```
 
-4. Deploy progress is visible at `https://github.com/<owner>/<repo>/actions`.
+4. **Trigger a deploy run AFTER Pages is enabled.** The first auto-run on push
+   may have started — and failed — before Pages existed; that's expected and
+   harmless. Kick a fresh run now, then watch it to completion:
+   ```bash
+   gh workflow run "Deploy to GitHub Pages"
+   sleep 8
+   gh run watch "$(gh run list --limit 1 --json databaseId -q '.[0].databaseId')" --exit-status
+   ```
+   Deploy progress is also visible at `https://github.com/<owner>/<repo>/actions`.
 
 **If the page is still 404 after a few minutes:** the first run occasionally
 needs Pages enabled by hand. Tell the teammate to open
