@@ -19,7 +19,7 @@ globally on their own machines. Maintained by Nirav Bhatt (nirav.bhatt@motadata.
 | Skill | Version | What it does |
 |-------|---------|--------------|
 | `publish` | 0.2.0 | Push the current project to GitHub and deploy it live on GitHub Pages, returning a copyable URL. Framework-aware (HTML, Vite/React/Vue, Angular, CRA, Gatsby, Astro; warns on SSR). |
-| `tata` | 0.2.0 | "Heading out" wrap-up: create/update `CLAUDE.md` + `HANDOFF.md` so the next session has context. **Never publishes** — it points the user to `/publish`. |
+| `tata` | 0.3.0 | "Heading out" wrap-up: create/update `CLAUDE.md` + `HANDOFF.md` so the next session has context. Default does NOT publish; `/tata publish` saves AND goes live (explicit opt-in keeps it safe in auto mode). |
 
 ## Structure
 ```

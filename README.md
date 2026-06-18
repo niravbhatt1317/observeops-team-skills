@@ -90,7 +90,7 @@ Then restart Claude Code.
 | Skill | What it does |
 |-------|--------------|
 | `publish` | Push the current project to GitHub and deploy it live on GitHub Pages. Sets up GitHub access on first use, creates the repo, enables Pages, and returns a copyable live URL. Remembers the repo + URL in `CLAUDE.md` so later runs just push and redeploy. |
-| `tata` | Run it when you're leaving for the day. Creates/updates `CLAUDE.md` (whole-project context) and `HANDOFF.md` (this session's summary, decisions, next steps) so the next Claude session resumes with full context — then reminds you to run `/publish` if you want to go live. (It never publishes by itself.) |
+| `tata` | Run it when you're leaving for the day. Creates/updates `CLAUDE.md` (whole-project context) and `HANDOFF.md` (this session's summary, decisions, next steps) so the next Claude session resumes with full context. Default does **not** publish; run `/tata publish` to save **and** go live in one step. |
 
 ### Using `/publish`
 
@@ -149,10 +149,19 @@ It will:
    project doesn't have one yet).
 2. **Update `HANDOFF.md`** — what you did this session, decisions made, and the
    next steps.
-3. **Remind you to publish** — it tells you to run `/publish` when you want the
-   changes live. It does **not** publish on its own, so nothing goes public by
-   accident (even in auto mode). Publishing is always your separate, deliberate
-   `/publish`.
+3. **Remind you to publish** — by default it does **not** publish on its own, so
+   nothing goes public by accident (even in auto mode). It just tells you to run
+   `/publish` when you're ready.
+
+**Want to do both at once?** Run:
+
+```
+/tata publish
+```
+
+That saves your context **and** publishes live in one step. Publishing only
+happens when you explicitly add `publish` (or say "tata and publish") — so the
+default `/tata` stays safe, and "do both" is still a single command.
 
 Next time anyone opens the project, Claude reads `HANDOFF.md` first and already
 knows the full history and the latest state — no "where did we leave off?"
