@@ -15,6 +15,13 @@ This is the explicit **"do both"** command. The teammate chose it deliberately b
 running `tatago`, so publishing IS intended — go ahead and publish. (This is safe
 even in auto mode: the combined action is exactly what they asked for.)
 
+## Step 0 — Heads-up (don't stop, just tell them)
+Before you start, post a one-line heads-up so it's never a surprise that this
+command goes live — then keep going (this is **not** a question; do not wait):
+
+> *"👋 Tata, go! I'll save your context (`CLAUDE.md` + `HANDOFF.md`) and then
+> publish your changes **live**. Starting now…"*
+
 ## Step 1 — Save the session context
 Run the **`tata`** skill (invoke it via the Skill tool, the same as typing
 `/tata`). Let it create/update `CLAUDE.md` (whole-project context) and

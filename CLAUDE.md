@@ -20,7 +20,7 @@ globally on their own machines. Maintained by Nirav Bhatt (nirav.bhatt@motadata.
 |-------|---------|--------------|
 | `publish` | 0.2.0 | Push the current project to GitHub and deploy it live on GitHub Pages, returning a copyable URL. Framework-aware (HTML, Vite/React/Vue, Angular, CRA, Gatsby, Astro; warns on SSR). |
 | `tata` | 0.3.0 | "Heading out" wrap-up: create/update `CLAUDE.md` + `HANDOFF.md` so the next session has context. Default does NOT publish; `/tata publish` saves AND goes live (explicit opt-in keeps it safe in auto mode). |
-| `tatago` | 0.1.0 | Shortcut that does both at once: runs `tata` (save context) then `publish` (go live). Thin orchestrator — invokes the `tata` and `publish` skills via the Skill tool. |
+| `tatago` | 0.1.1 | Shortcut that does both at once: runs `tata` (save context) then `publish` (go live). Posts a non-blocking "publishing live now…" heads-up first. Thin orchestrator — invokes the `tata` and `publish` skills via the Skill tool. |
 
 ## Structure
 ```
