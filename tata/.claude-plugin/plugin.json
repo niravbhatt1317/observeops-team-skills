@@ -1,8 +1,8 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "tata",
-  "version": "0.1.0",
-  "description": "Heading out? Save session context to CLAUDE.md + HANDOFF.md so the next Claude resumes with full context, then optionally publish the changes live.",
+  "version": "0.2.0",
+  "description": "Heading out? Save session context to CLAUDE.md + HANDOFF.md so the next Claude resumes with full context, then reminds you to run /publish if you want to go live (never publishes by itself).",
   "author": {
     "name": "Nirav Bhatt",
     "email": "nirav.bhatt@motadata.com"

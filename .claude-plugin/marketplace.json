@@ -18,8 +18,8 @@
     {
       "name": "tata",
       "source": "./tata",
-      "version": "0.1.0",
-      "description": "Tata! Heading out? Save session context to CLAUDE.md + HANDOFF.md so the next Claude resumes with full context, then optionally publish live."
+      "version": "0.2.0",
+      "description": "Tata! Heading out? Save session context to CLAUDE.md + HANDOFF.md so the next Claude resumes with full context, then reminds you to run /publish (never publishes by itself)."
     }
   ]
 }

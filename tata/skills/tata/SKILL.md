@@ -4,11 +4,12 @@ description: >-
   Tata! Heading out for the day? Wrap up the session: create or update CLAUDE.md (the
   durable, whole-project context) and HANDOFF.md (this session's summary, changes,
   and decisions) so the next Claude session — or teammate — resumes with full
-  context. Always updates BOTH files, then offers to publish the changes live. Use
-  when leaving for the day, signing off, wrapping up, ending a session, saving
-  progress, checkpointing, or handing off work.
+  context. Always updates BOTH files, then reminds you to run /publish if you want
+  to go live (it never publishes by itself). Use when leaving for the day, signing
+  off, wrapping up, ending a session, saving progress, checkpointing, or handing
+  off work.
 argument-hint: "[anything to highlight for next time]"
-allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Skill
+allowed-tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 
 # Tata — wrap up the session before you head out
@@ -134,20 +135,21 @@ Tell the teammate, plainly:
 
 ---
 
-## Step 5 — Offer to publish
+## Step 5 — Point to publish (DO NOT publish yourself)
 
-Ask the teammate clearly:
+🛑 **This skill never publishes. Saving the two files is the entire job.** Do not
+run `publish`, do not `git push`, do not deploy — not even if the teammate seems
+to want it, and **not even in auto / don't-ask mode**. Publishing a live, public
+site must always be a separate, deliberate action the teammate takes themselves.
 
-> *"Both files are updated. Do you want to publish these changes live now?"*
+Finish by telling them, plainly:
 
-- **If yes** → run the **`publish`** skill to push and deploy (invoke it via the
-  Skill tool, the same as if they typed `/publish`). Let `publish` handle the
-  commit, push, GitHub Pages deploy, and live URL.
-  - If the `publish` skill isn't installed on their machine, tell them to install
-    it first: `/plugin install publish` (from the same `observeops-team-skills`
-    marketplace), then re-run.
-- **If no** → you're done. Remind them their context is saved and they can publish
-  anytime later with `/publish`.
+> *"✅ Saved your context (`CLAUDE.md` + `HANDOFF.md`). To put these changes live,
+> run `/publish` whenever you're ready."*
+
+That's it — end your turn here. If they explicitly ask you to publish in a
+**later** message, that's when `/publish` runs — as its own separate command, not
+chained from this skill.
 
 ---
 
@@ -160,3 +162,6 @@ Ask the teammate clearly:
 - Never invent work that didn't happen — base the handoff on the actual session.
 - Preserve any existing content the teammate wrote in `CLAUDE.md`; merge, don't
   clobber.
+- **This skill NEVER publishes or pushes** — not even in auto mode, not even to
+  "finish the task." It only writes the two files and then tells the teammate to
+  run `/publish` themselves. Publishing is always a separate, deliberate command.
