@@ -20,14 +20,17 @@ Open Claude Code and run these two commands. Each fenced block below has a
 /plugin marketplace add https://github.com/niravbhatt1317/observeops-team-skills
 ```
 
-**2. Install the publish skill:**
+**2. Install the skills:**
 
 ```
 /plugin install publish
 ```
+```
+/plugin install tata
+```
 
-**3. Choose the install scope.** Claude Code will ask *where* to install it and
-show three options. **Select the first one:**
+**3. Choose the install scope.** Claude Code will ask *where* to install each one
+and show three options. **Select the first one:**
 
 > ▸ **Install for you (user scope)**  ← pick this one, then press **Enter**
 
@@ -37,8 +40,8 @@ skill to a single repo, which is **not** what you want here.)
 
 **4. Restart Claude Code.**
 
-Done ✅ — now type `/publish` in **any** project, in any folder, and it works.
-It is installed globally on your device, not tied to a specific repo.
+Done ✅ — now type `/publish` or `/tata` in **any** project, in any folder, and
+they work. They're installed globally on your device, not tied to a specific repo.
 
 ### 💡 First time you publish: pick "don't ask again"
 
@@ -66,14 +69,16 @@ Type `/` in Claude Code and you should see **`publish`** in the list. Or just ru
 
 ## 🔄 Getting updates
 
-When new skills are added or `publish` is improved, refresh with:
+When new skills are added or a skill is improved, refresh with:
 
 ```
 /plugin marketplace update observeops-team-skills
 ```
-
 ```
 /plugin install publish
+```
+```
+/plugin install tata
 ```
 
 Then restart Claude Code.
@@ -130,6 +135,27 @@ takes a minute and has more moving parts**, so confirm it before sharing:
 > Tip: if your app lives in a subfolder (e.g. `app/`), make sure `/publish` is
 > building *that* folder — Claude detects this, but double-check the live page
 > shows the app.
+
+### Using `/tata` — wrap up when you leave
+
+When you're done for the day, from the project folder run:
+
+```
+/tata
+```
+
+It will:
+1. **Update `CLAUDE.md`** — the durable, whole-project context (creates it if the
+   project doesn't have one yet).
+2. **Update `HANDOFF.md`** — what you did this session, decisions made, and the
+   next steps.
+3. **Ask if you want to publish** — say yes and it runs `/publish` for you.
+
+Next time anyone opens the project, Claude reads `HANDOFF.md` first and already
+knows the full history and the latest state — no "where did we leave off?"
+
+> `/tata` needs the `publish` skill installed for the publish step. If you skipped
+> it above, install it with `/plugin install publish`.
 
 ---
 
