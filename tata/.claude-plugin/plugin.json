@@ -1,6 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
-  "name": "byebye",
+  "name": "tata",
   "version": "0.1.0",
   "description": "Heading out? Save session context to CLAUDE.md + HANDOFF.md so the next Claude resumes with full context, then optionally publish the changes live.",
   "author": {
