@@ -1,16 +1,17 @@
 ---
-name: wrap-up
+name: byebye
 description: >-
-  Wrap up a work session: create or update CLAUDE.md (the durable, whole-project
-  context) and HANDOFF.md (this session's summary, changes, and decisions) so the
-  next Claude session — or teammate — resumes with full context. Always updates
-  BOTH files, then offers to publish the changes live. Use when ending a session,
-  wrapping up, saving progress, checkpointing, or handing off work.
+  Heading out for the day? Wrap up the session: create or update CLAUDE.md (the
+  durable, whole-project context) and HANDOFF.md (this session's summary, changes,
+  and decisions) so the next Claude session — or teammate — resumes with full
+  context. Always updates BOTH files, then offers to publish the changes live. Use
+  when leaving for the day, signing off, wrapping up, ending a session, saving
+  progress, checkpointing, or handing off work.
 argument-hint: "[anything to highlight for next time]"
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Skill
 ---
 
-# Wrap up the session
+# Bye-bye — wrap up the session
 
 You save everything needed for the next person (or next Claude session) to pick
 this project up cold. You **always update two files** — `CLAUDE.md` and

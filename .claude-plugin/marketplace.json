@@ -16,10 +16,10 @@
       "description": "Push your project to GitHub and deploy it live on GitHub Pages, then return the shareable URL."
     },
     {
-      "name": "wrap-up",
-      "source": "./wrap-up",
+      "name": "byebye",
+      "source": "./byebye",
       "version": "0.1.0",
-      "description": "Save session context to CLAUDE.md + HANDOFF.md so the next Claude resumes with full context, then optionally publish live."
+      "description": "Heading out? Save session context to CLAUDE.md + HANDOFF.md so the next Claude resumes with full context, then optionally publish live."
     }
   ]
 }
