@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "tatago",
+  "version": "0.1.0",
+  "description": "Tata, go! One command to save your session context (CLAUDE.md + HANDOFF.md) AND publish live — the short form of '/tata publish'.",
+  "author": {
+    "name": "Nirav Bhatt",
+    "email": "nirav.bhatt@motadata.com"
+  }
+}

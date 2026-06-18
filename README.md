@@ -28,6 +28,9 @@ Open Claude Code and run these two commands. Each fenced block below has a
 ```
 /plugin install tata
 ```
+```
+/plugin install tatago
+```
 
 **3. Choose the install scope.** Claude Code will ask *where* to install each one
 and show three options. **Select the first one:**
@@ -80,6 +83,9 @@ When new skills are added or a skill is improved, refresh with:
 ```
 /plugin install tata
 ```
+```
+/plugin install tatago
+```
 
 Then restart Claude Code.
 
@@ -91,6 +97,7 @@ Then restart Claude Code.
 |-------|--------------|
 | `publish` | Push the current project to GitHub and deploy it live on GitHub Pages. Sets up GitHub access on first use, creates the repo, enables Pages, and returns a copyable live URL. Remembers the repo + URL in `CLAUDE.md` so later runs just push and redeploy. |
 | `tata` | Run it when you're leaving for the day. Creates/updates `CLAUDE.md` (whole-project context) and `HANDOFF.md` (this session's summary, decisions, next steps) so the next Claude session resumes with full context. Default does **not** publish; run `/tata publish` to save **and** go live in one step. |
+| `tatago` | The short "do both" command — saves your context **and** publishes live in one go (same as `/tata publish`). |
 
 ### Using `/publish`
 
@@ -153,15 +160,19 @@ It will:
    nothing goes public by accident (even in auto mode). It just tells you to run
    `/publish` when you're ready.
 
-**Want to do both at once?** Run:
+**Want to do both at once?** Either of these saves your context **and** publishes
+live in one step:
 
+```
+/tatago
+```
 ```
 /tata publish
 ```
 
-That saves your context **and** publishes live in one step. Publishing only
-happens when you explicitly add `publish` (or say "tata and publish") — so the
-default `/tata` stays safe, and "do both" is still a single command.
+`/tatago` is just the short form. Publishing only happens when you explicitly run
+`/tatago` or add `publish` — so the plain `/tata` stays safe and never ships by
+accident.
 
 Next time anyone opens the project, Claude reads `HANDOFF.md` first and already
 knows the full history and the latest state — no "where did we leave off?"

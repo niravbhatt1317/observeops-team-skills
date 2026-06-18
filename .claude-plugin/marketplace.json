@@ -20,6 +20,12 @@
       "source": "./tata",
       "version": "0.3.0",
       "description": "Tata! Heading out? Save session context to CLAUDE.md + HANDOFF.md. Default does not publish; run '/tata publish' to save AND go live in one step."
+    },
+    {
+      "name": "tatago",
+      "source": "./tatago",
+      "version": "0.1.0",
+      "description": "Tata, go! One command to save session context (CLAUDE.md + HANDOFF.md) AND publish live — the short form of '/tata publish'."
     }
   ]
 }
