@@ -99,6 +99,17 @@ Then restart Claude Code.
 | `tata` | Run it when you're leaving for the day. Creates/updates `CLAUDE.md` (whole-project context) and `HANDOFF.md` (this session's summary, decisions, next steps) so the next Claude session resumes with full context. Default does **not** publish; run `/tata publish` to save **and** go live in one step. |
 | `tatago` | The short "do both" command — saves your context **and** publishes live in one go (same as `/tata publish`). |
 
+### `tata` vs `tatago` — which do I use?
+
+| | `/tata` | `/tatago` |
+|---|---|---|
+| Saves `CLAUDE.md` + `HANDOFF.md` | ✅ | ✅ |
+| Publishes live to GitHub Pages | ❌ (never — points you to `/publish`) | ✅ (saves **then** publishes) |
+| Use it when… | You're saving progress / leaving, but **not** ready to go live | You want to **save and ship** in one step |
+
+**Rule of thumb:** `/tata` = *save only.* `/tatago` = *save + go live.*
+(`/tata publish` does the same as `/tatago` — just longer to type.)
+
 ### Using `/publish`
 
 From any project folder, run:
