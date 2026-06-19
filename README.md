@@ -205,6 +205,40 @@ recommended.
 
 ---
 
+## 🛠️ Troubleshooting
+
+### `JSON Parse error: Unrecognized token ''` when adding the marketplace
+
+This is **not a problem with the repo** — its `marketplace.json` is valid and has
+no BOM. The error (note the empty `''` token) means Claude Code read a **stale or
+empty cached copy** on your machine, usually left over from an earlier failed
+`marketplace add`. Fix it by clearing the cache and re-adding:
+
+1. `/plugin marketplace remove observeops-team-skills`
+2. **Quit and restart Claude Code.**
+3. `/plugin marketplace add https://github.com/niravbhatt1317/observeops-team-skills`
+4. Re-install: `/plugin install publish` · `/plugin install tata` · `/plugin install tatago`
+
+If it still fails, delete the cached marketplace on disk, then redo steps 3–4.
+
+**Windows (PowerShell):**
+```powershell
+Remove-Item -Recurse -Force "$env:USERPROFILE\.claude\plugins\marketplaces\observeops-team-skills" -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force "$env:USERPROFILE\.claude\plugins\cache\temp_local_*" -ErrorAction SilentlyContinue
+```
+
+**macOS / Linux:**
+```
+rm -rf ~/.claude/plugins/marketplaces/observeops-team-skills ~/.claude/plugins/cache/temp_local_*
+```
+
+> ⚠️ **Don't run a "BOM fix" script** on the manifest — the repo file is already
+> clean, and on Windows PowerShell `Out-File` / `>` can *add* a BOM or UTF-16 and
+> actually create the problem. The fix is clearing the cache, not editing the file.
+> (If your config dir is `.claude-max` instead of `.claude`, swap that into the paths.)
+
+---
+
 ## ➕ Adding a new skill (maintainer)
 
 1. Create `<skill-name>/skills/<skill-name>/SKILL.md` (copy `publish/` as a template).
