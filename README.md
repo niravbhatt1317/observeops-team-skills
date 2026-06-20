@@ -210,32 +210,46 @@ recommended.
 ### `JSON Parse error: Unrecognized token ''` when adding the marketplace
 
 This is **not a problem with the repo** — its `marketplace.json` is valid and has
-no BOM. The error (note the empty `''` token) means Claude Code read a **stale or
-empty cached copy** on your machine, usually left over from an earlier failed
-`marketplace add`. Fix it by clearing the cache and re-adding:
+no BOM. The empty `''` token means Claude Code received an **empty file** when it
+tried to clone/read the marketplace. In practice this is almost always an
+**outdated Claude Code** (especially on Windows). Work through these in order:
 
-1. `/plugin marketplace remove observeops-team-skills`
-2. **Quit and restart Claude Code.**
-3. `/plugin marketplace add https://github.com/niravbhatt1317/observeops-team-skills`
-4. Re-install: `/plugin install publish` · `/plugin install tata` · `/plugin install tatago`
+**1. Update Claude Code first** ⭐ (this is the most common fix)
+Update to the latest version, restart, then retry:
+```
+/plugin marketplace add https://github.com/niravbhatt1317/observeops-team-skills
+```
+Then `/plugin install publish` · `tata` · `tatago` (choose **"Install for you
+(user scope)"**). Check your version with `claude --version`.
 
-If it still fails, delete the cached marketplace on disk, then redo steps 3–4.
+**2. If it still fails — install manually from the ZIP** (no marketplace needed)
+Download the repo: https://github.com/niravbhatt1317/observeops-team-skills →
+green **Code** → **Download ZIP**, then:
 
-**Windows (PowerShell):**
+*Windows (PowerShell) — paste as ONE line:*
+```powershell
+Expand-Archive -Force "$env:USERPROFILE\Downloads\observeops-team-skills-main.zip" "$env:USERPROFILE\Downloads\oots"; $src=(Get-ChildItem -Recurse "$env:USERPROFILE\Downloads\oots" -Filter "marketplace.json" | Select-Object -First 1).Directory.Parent.FullName; New-Item -ItemType Directory -Force "$env:USERPROFILE\.claude\skills" | Out-Null; "publish","tata","tatago" | ForEach-Object { Copy-Item -Recurse -Force "$src\$_\skills\$_" "$env:USERPROFILE\.claude\skills\$_" }; Get-ChildItem "$env:USERPROFILE\.claude\skills"
+```
+*macOS / Linux:*
+```
+cd ~/Downloads && unzip -o observeops-team-skills-main.zip && mkdir -p ~/.claude/skills && for s in publish tata tatago; do cp -R observeops-team-skills-main/$s/skills/$s ~/.claude/skills/$s; done
+```
+Restart Claude Code → `/publish`, `/tata`, `/tatago` appear. (Manual installs
+don't auto-update — re-run this when skills change, or switch to the marketplace
+once step 1 works.)
+
+**3. Rare — stale cache from an earlier failed add**
+If you previously had a broken add cached, clear it and redo step 1:
 ```powershell
 Remove-Item -Recurse -Force "$env:USERPROFILE\.claude\plugins\marketplaces\observeops-team-skills" -ErrorAction SilentlyContinue
 Remove-Item -Recurse -Force "$env:USERPROFILE\.claude\plugins\cache\temp_local_*" -ErrorAction SilentlyContinue
 ```
+(macOS/Linux: `rm -rf ~/.claude/plugins/marketplaces/observeops-team-skills ~/.claude/plugins/cache/temp_local_*`)
 
-**macOS / Linux:**
-```
-rm -rf ~/.claude/plugins/marketplaces/observeops-team-skills ~/.claude/plugins/cache/temp_local_*
-```
-
-> ⚠️ **Don't run a "BOM fix" script** on the manifest — the repo file is already
-> clean, and on Windows PowerShell `Out-File` / `>` can *add* a BOM or UTF-16 and
-> actually create the problem. The fix is clearing the cache, not editing the file.
-> (If your config dir is `.claude-max` instead of `.claude`, swap that into the paths.)
+> ⚠️ **Don't run a "BOM fix" script** on the manifest — the repo file is clean,
+> and on Windows PowerShell `Out-File` / `>` can *add* a BOM/UTF-16 and create a
+> real problem. The fix is updating Claude Code, not editing the file. (If your
+> config dir is `.claude-max` instead of `.claude`, swap that into the paths.)
 
 ---
 
