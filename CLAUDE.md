@@ -24,14 +24,18 @@ globally on their own machines. Maintained by Nirav Bhatt (nirav.bhatt@motadata.
 
 ## Structure
 ```
-.claude-plugin/marketplace.json   # marketplace manifest: lists both plugins
+.claude-plugin/marketplace.json   # marketplace manifest: lists all three plugins
 publish/
   .claude-plugin/plugin.json      # plugin manifest for publish
   skills/publish/SKILL.md         # the publish skill (instructions Claude follows)
 tata/
   .claude-plugin/plugin.json      # plugin manifest for tata
   skills/tata/SKILL.md            # the tata skill
+tatago/
+  .claude-plugin/plugin.json      # plugin manifest for tatago
+  skills/tatago/SKILL.md          # the tatago skill (orchestrates tata + publish)
 README.md                         # install + usage docs for teammates
+CLAUDE.md / HANDOFF.md            # this project's own context (open Claude here)
 ```
 
 ## How a skill works

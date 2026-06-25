@@ -1,66 +1,66 @@
-# Handoff — 2026-06-18 20:50
+# Handoff — 2026-06-25 22:57
 
 ## Read first
-`CLAUDE.md` → "Editing or adding a skill — the routine" and "Manifest schema
-rules". Those two sections are what you need before touching any skill.
+`CLAUDE.md` → "Skills in this marketplace", "Editing or adding a skill — the
+routine", and "Manifest schema rules". Those cover what each skill does and how to
+change one safely.
 
 ## What we worked on this session
-Built this team plugin marketplace from scratch: created the `publish` skill,
-hardened it through real teammate bug reports + a live Angular test, then created
-the `tata` wrap-up skill and redesigned it after an auto-mode incident.
+Added the `tatago` skill, refined `tata`'s publish behavior after an auto-mode
+incident, and spent significant time helping Windows teammates install the
+marketplace (root cause turned out to be outdated Claude Code).
 
 ## Completed
-- **Marketplace scaffolded** and pushed to GitHub (public), with README install/usage docs.
-- **`publish` skill (v0.2.0)** — push to GitHub + deploy to GitHub Pages, returns live URL. Includes:
-  - GitHub access preflight (`gh` install + `gh auth`), secret/`.gitignore` scan, public-repo consent.
-  - Framework awareness: detects the app subfolder, the build **output folder** (NOT always `dist`), and sets the correct **base path** (`/<repo>/`).
-  - Enables Pages via **`gh api ... build_type=workflow` with the user's auth** (the workflow's own token CANNOT create a Pages site on a new repo — confirmed live).
-  - Polls the live URL, writes repo + URL into the target project's `CLAUDE.md`.
-- **`tata` skill (v0.2.0)** — saves `CLAUDE.md` + `HANDOFF.md`; points user to `/publish`.
-- **Tested `publish` end-to-end with a throwaway Angular 18 app** — went live, then cleaned up (repo + local folder deleted).
-- **Tested `tata`** (first-run create + update-path merge) on a throwaway project; both passed.
-- Added `CLAUDE.md` + `HANDOFF.md` to THIS repo (this task).
+- **`tata` evolved to v0.3.0**:
+  - v0.1.0 saved files AND auto-offered publish (chained to `/publish`).
+  - v0.2.0 **decoupled** — never publishes, just points to `/publish` (after a
+    teammate's auto-mode session auto-published instead of asking).
+  - v0.3.0 — `/tata` = save only (default, safe in auto mode); **`/tata publish`**
+    (explicit) = save AND go live. Explicit keyword = deliberate consent.
+- **`tatago` skill added (v0.1.1)** — short "do both" command: runs `tata` then
+  `publish`. v0.1.1 added a **non-blocking heads-up** ("publishing live now…") so
+  it's never a surprise, without a blocking prompt (Step 0 in its SKILL.md).
+- **Naming journey** for the wrap-up skill: wrap-up → byebye → **tata** (short,
+  left-hand, fun, "leaving the office"). Combo command named **tatago** ("tata, go!").
+- **README** updated: `tata` usage, `tata` vs `tatago` comparison table, install +
+  update lists include all three skills, and a **Troubleshooting** section.
+- **Project context files** (CLAUDE.md + HANDOFF.md) added to THIS repo and now
+  refreshed.
 
 ## In progress
-Nothing mid-flight. Both skills are shipped and documented.
+Nothing mid-flight. All three skills shipped, documented, and pushed.
 
 ## Next steps
-- (Optional) Announce `tata` v0.2.0 to the team — they should re-run
-  `/plugin marketplace update observeops-team-skills` + `/plugin install tata`.
-- (Optional) End-to-end test the full `tata` → manual `/publish` flow now that they're decoupled.
-- Future skill ideas discussed but not built: `/sites` (live-URL dashboard),
+- (Optional) **End-to-end test `/tatago`** on a throwaway project — the save→publish
+  chain has not been run live yet (publish itself was proven via the Angular test).
+- (Optional) Announce `tatago` + `tata` v0.3.0 to the team (re-run
+  `/plugin marketplace update observeops-team-skills` then install).
+- Future skill ideas discussed, not built: `/sites` (live-URL dashboard),
   `/share` (link + screenshot + QR), `/brand-check` (audit vs design tokens),
   `/new-prototype` (on-brand scaffold), `/unpublish`.
 
 ## Decisions made
-- **Distribution = plugin marketplace in a git repo** (not zip/copy): teammates
-  install once and get updates by re-installing. User scope = global on device.
-- **`publish` deploys via a GitHub Actions workflow uniformly** (static + build
-  apps), adopted from the older dhoom `/publish`; more reliable than branch-root.
-- **Enable Pages with the user's `gh` auth, not the workflow token** — the
-  Angular test proved `enablement: true` alone fails ("Resource not accessible by
-  integration") on brand-new repos.
-- **tata skill redesigned — IMPORTANT CHANGE:**
-  - **v0.1.0 (first version):** tata did BOTH things — saved the two files AND
-    then offered to publish, chaining into `/publish` on "yes".
-  - **Problem:** a teammate ran it in **auto mode**, where Claude pushes to
-    complete the task and skipped the confirmation — it **auto-published** instead
-    of asking. Instruction wording ("ask first") can't guarantee a stop in auto mode.
-  - **v0.2.0 (current):** tata now does **only ONE thing — save the files.** It
-    never publishes; it just tells the user to run `/publish` themselves.
-    Decoupling is the only bulletproof fix (nothing to auto-trigger). Publishing
-    is always a separate, deliberate `/publish`.
-- **Naming:** the wrap-up skill went through names wrap-up → byebye → **tata**
-  (chosen: short, all left-hand to type, fun, "leaving the office" vibe).
+- **Auto-mode safety is a design constraint, not a wording fix.** You can't force
+  Claude to stop-and-ask in auto mode, so risky actions must be opt-in by command
+  choice: `/tata` never publishes; only `/tata publish` or `/tatago` do.
+- **`tatago` is a thin orchestrator** — it invokes the `tata` and `publish` skills
+  via the Skill tool rather than duplicating their logic.
+- **Windows install error `JSON Parse error: Unrecognized token ''` = outdated
+  Claude Code**, NOT a repo BOM. Confirmed the repo's `marketplace.json` is valid
+  and BOM-free (local + raw GitHub). The empty `''` token = an empty file from a
+  failed clone. README troubleshooting now leads with "update Claude Code first",
+  then ZIP/manual install, then cache-clear.
 
 ## Gotchas & notes
-- This machine uses `CLAUDE_CONFIG_DIR=~/.claude-max` — personal skills live in
-  `~/.claude-max/skills/`, NOT `~/.claude/skills/`. Sync maintainer copies there.
-- Manifest schema is strict: `owner` and `author` must be **objects**; bad shapes
-  cause install-time validation errors (we hit both early).
-- Deleting a repo via `gh` needs the `delete_repo` scope (the token didn't have
-  it by default) — use the web UI or `gh auth refresh -s delete_repo`.
-- `gh`/`node` aren't on PATH in non-interactive shells here; node is via nvm
-  (`~/.nvm/versions/node/v18.20.8/bin`).
-- Skills are instructions, not code — design safety as behavior that can't be
-  bypassed (the tata lesson), don't rely on Claude choosing to pause.
+- **Maintainer's config dir is `~/.claude-max`** (not `~/.claude`). After editing a
+  skill, sync the personal copy:
+  `cp <skill>/skills/<skill>/SKILL.md ~/.claude-max/skills/<skill>/SKILL.md`.
+- **Open Claude FROM this folder** (`observeops-team-skills/`) so these context
+  files auto-load. The parent `Observe-Ops-Code/` has no CLAUDE.md.
+- **Bump version in BOTH** `plugin.json` and `marketplace.json` on every change —
+  it drives the teammate "update available" signal.
+- **Manual/ZIP installs don't auto-update** — teammate Nikhil installed via ZIP and
+  must re-copy on changes (or switch to marketplace now that his Claude is current).
+- **Don't run a PowerShell "BOM fix"** on the manifest — Windows PowerShell can
+  *add* a BOM/UTF-16 and create the very problem it claims to fix.
+- Deleting a GitHub repo via `gh` needs the `delete_repo` scope (not default).
