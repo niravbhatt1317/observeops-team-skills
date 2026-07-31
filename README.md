@@ -31,6 +31,9 @@ Open Claude Code and run these two commands. Each fenced block below has a
 ```
 /plugin install tatago
 ```
+```
+/plugin install dhun
+```
 
 **3. Choose the install scope.** Claude Code will ask *where* to install each one
 and show three options. **Select the first one:**
@@ -86,6 +89,9 @@ When new skills are added or a skill is improved, refresh with:
 ```
 /plugin install tatago
 ```
+```
+/plugin install dhun
+```
 
 Then restart Claude Code.
 
@@ -98,6 +104,37 @@ Then restart Claude Code.
 | `publish` | Push the current project to GitHub and deploy it live on GitHub Pages. Sets up GitHub access on first use, creates the repo, enables Pages, and returns a copyable live URL. Remembers the repo + URL in `CLAUDE.md` so later runs just push and redeploy. |
 | `tata` | Run it when you're leaving for the day. Creates/updates `CLAUDE.md` (whole-project context) and `HANDOFF.md` (this session's summary, decisions, next steps) so the next Claude session resumes with full context. Default does **not** publish; run `/tata publish` to save **and** go live in one step. |
 | `tatago` | The short "do both" command — saves your context **and** publishes live in one go (same as `/tata publish`). |
+| `dhun` | Gives Claude Code a voice. A chime when a turn finishes, and distinct sounds when Claude needs your approval or when a tool call fails — so you can look away and still know what's happening. Installs globally: every project, every folder, terminal **and** VS Code. Run `/dhun pause` to silence it, `/dhun resume` to bring it back. |
+
+### Using `/dhun` — hear what Claude is doing
+
+Install it, **restart Claude Code**, and you'll start hearing:
+
+| Sound | When |
+|---|---|
+| 🔔 chime | Claude finished responding |
+| 🎙️ *"Ye koi tareeka hai bheek mangne ka?"* | Claude needs your approval and can't continue |
+| 🎙️ *"Kuchu puchu tum kaha ho"* | You've been idle ~60s and Claude is waiting |
+| 🎙️ *"Are maalik wo thoda sa galti ho gayi"* | A tool call failed |
+
+Nothing plays when a tool *succeeds* — you hear outcomes, not activity.
+
+```
+/dhun test           # hear all four now, no restart needed
+/dhun pause          # silence everything
+/dhun pause 30m      # silence it, auto-resumes (good before a meeting)
+/dhun pause error    # silence just the failure sound
+/dhun resume
+/dhun status         # what's on, what's paused
+/dhun doctor         # run this if you hear nothing
+```
+
+Pausing takes effect immediately — no restart.
+
+> **Hearing nothing?** Nine times out of ten you haven't restarted Claude Code
+> since installing. Hooks load at session start. If that's not it, run
+> `/dhun doctor`. Note that SSH sessions, dev containers and claude.ai/code
+> can't play sound at all — the hook runs on that machine, not yours.
 
 ### `tata` vs `tatago` — which do I use?
 
@@ -219,7 +256,7 @@ Update to the latest version, restart, then retry:
 ```
 /plugin marketplace add https://github.com/niravbhatt1317/observeops-team-skills
 ```
-Then `/plugin install publish` · `tata` · `tatago` (choose **"Install for you
+Then `/plugin install publish` · `tata` · `tatago` · `dhun` (choose **"Install for you
 (user scope)"**). Check your version with `claude --version`.
 
 **2. If it still fails — install manually from the ZIP** (no marketplace needed)

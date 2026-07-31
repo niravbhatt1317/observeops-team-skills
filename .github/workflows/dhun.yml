@@ -1,0 +1,267 @@
+name: dhun
+
+on:
+  push:
+    paths: ['dhun/skills/dhun/**', '.github/workflows/dhun.yml']
+  pull_request:
+    paths: ['dhun/skills/dhun/**', '.github/workflows/dhun.yml']
+  workflow_dispatch:
+
+# Audio playback itself is never asserted — CI runners have no sound device. What IS
+# asserted is every failure mode that matters: scripts parse, settings.json merges
+# without eating foreign hooks, install is idempotent, uninstall is clean, and the
+# error hook fires on failures but stays silent on success.
+
+jobs:
+  posix:
+    name: ${{ matrix.os }} (${{ matrix.json }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        json: [jq, python3]   # both JSON backends must produce identical results
+    # DHUN_JSON pins the backend. Hiding jq is not viable: on macOS runners it lives
+    # at /usr/bin/jq, on a read-only filesystem.
+    env:
+      DHUN_JSON: ${{ matrix.json }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Confirm the intended JSON backend is in use
+        run: |
+          echo "DHUN_JSON=$DHUN_JSON"
+          if [ "$DHUN_JSON" = python3 ]; then
+            command -v python3 >/dev/null || { echo "python3 missing"; exit 1; }
+          else
+            command -v jq >/dev/null || { echo "jq missing"; exit 1; }
+          fi
+
+      - name: Shell syntax
+        run: |
+          for f in dhun/skills/dhun/install.sh dhun/skills/dhun/hooks/*.sh; do sh -n "$f" && echo "ok  $f"; done
+
+      - name: Player exits 0 with no audio backend present
+        run: |
+          chmod +x dhun/skills/dhun/hooks/*.sh
+          ./dhun/skills/dhun/hooks/dhun-play.sh done 0.75
+          echo "exit=$?  (must be 0 — a hook must never fail a tool call)"
+
+      # DHUN_DRY_RUN short-circuits before the playback branch, so without this the
+      # OS-detection and player-selection code would never run in CI. Shim the real
+      # binary on PATH and assert it was invoked with the right file.
+      - name: Audio backend is actually invoked with the right file
+        run: |
+          mkdir -p /tmp/shim
+          case "$(uname -s)" in
+            Darwin) BIN=afplay ;;
+            *)      BIN=paplay ;;
+          esac
+          cat > "/tmp/shim/$BIN" <<'SHIM'
+          #!/bin/sh
+          echo "INVOKED $*" >> /tmp/invoked.log
+          SHIM
+          chmod +x "/tmp/shim/$BIN"
+          : > /tmp/invoked.log
+
+          PATH="/tmp/shim:$PATH" ./dhun/skills/dhun/hooks/dhun-play.sh permission 0.75
+
+          grep -q "INVOKED" /tmp/invoked.log || {
+            echo "player never invoked $BIN"; exit 1; }
+          grep -q "permission.wav" /tmp/invoked.log || {
+            echo "wrong file passed:"; cat /tmp/invoked.log; exit 1; }
+          echo "backend invocation OK: $(cat /tmp/invoked.log)"
+
+      - name: Mute honours a timed pause and self-expires
+        env:
+          DHUN_DRY_RUN: /tmp/expiry.log
+        run: |
+          : > /tmp/expiry.log
+          echo 1 > dhun/skills/dhun/muted            # epoch 1 = long past, so it must auto-clear
+          ./dhun/skills/dhun/hooks/dhun-play.sh done 0.75
+          [ -s /tmp/expiry.log ] || { echo "expired mute still suppressed playback"; exit 1; }
+          [ ! -f dhun/skills/dhun/muted ] || { echo "expired mute file was not removed"; exit 1; }
+          echo "timed-mute expiry OK"
+
+      - name: Install
+        run: |
+          mkdir -p /tmp/cfg
+          cat > /tmp/cfg/settings.json <<'JSON'
+          {"theme":"dark","hooks":{"Stop":[{"hooks":[{"type":"command","command":"echo FOREIGN"}]}]}}
+          JSON
+          ./dhun/skills/dhun/install.sh --dir /tmp/cfg
+
+      - name: Assert merged config
+        run: |
+          python3 - <<'PY'
+          import json
+          cfg = json.load(open("/tmp/cfg/settings.json"))
+          h = cfg["hooks"]
+          assert cfg["theme"] == "dark", "unrelated keys must survive"
+          got = [e.get("matcher") for e in h["Notification"]]
+          want = ["agent_needs_input","idle_prompt"]
+          assert got == want, f"matchers {got} != {want}"
+          # PermissionRequest/Elicitation fire immediately; the Notification
+          # equivalents lag by seconds, so they must NOT also be wired.
+          assert h["PermissionRequest"], "PermissionRequest missing"
+          assert h["Elicitation"], "Elicitation missing"
+          for e in h["Notification"]:
+              assert e.get("matcher") not in ("permission_prompt","elicitation_dialog"), \
+                  f"duplicate laggy matcher wired: {e.get('matcher')}"
+          cmds = [x["command"] for e in h["Stop"] for x in e["hooks"]]
+          assert "echo FOREIGN" in cmds, "foreign hook was clobbered"
+          assert any("dhun" in c for c in cmds), "dhun Stop hook missing"
+          # PostToolUse fires on SUCCESS; failures need PostToolUseFailure.
+          assert "PostToolUse" not in h, "must not wire PostToolUse - it never fires on failure"
+          assert h["PostToolUseFailure"][0]["matcher"] == "*"
+          assert "error" in h["PostToolUseFailure"][0]["hooks"][0]["command"]
+          print("merged config OK")
+          PY
+
+      - name: Assert idempotency
+        run: |
+          ./dhun/skills/dhun/install.sh --dir /tmp/cfg >/dev/null
+          python3 -c "
+          import json; h=json.load(open('/tmp/cfg/settings.json'))['hooks']
+          assert len(h['Stop'])==2, f\"re-install duplicated entries: {len(h['Stop'])}\"
+          assert len(h['Notification'])==2, len(h['Notification'])
+          assert len(h['PermissionRequest'])==1, len(h['PermissionRequest'])
+          assert len(h['Elicitation'])==1, len(h['Elicitation'])
+          assert len(h['PostToolUseFailure'])==1, len(h['PostToolUseFailure'])
+          print('idempotent OK')"
+
+      - name: Mute suppresses playback
+        env:
+          DHUN_DRY_RUN: /tmp/played.log
+        run: |
+          : > /tmp/played.log
+          touch /tmp/cfg/dhun/muted.error
+          /tmp/cfg/dhun/hooks/dhun-play.sh error 0.75
+          [ ! -s /tmp/played.log ] || { echo "mute ignored"; cat /tmp/played.log; exit 1; }
+          rm /tmp/cfg/dhun/muted.error
+          /tmp/cfg/dhun/hooks/dhun-play.sh error 0.75
+          grep -q "PLAYED error" /tmp/played.log || { echo "unmute failed"; exit 1; }
+          echo "mute + unmute OK"
+
+      - name: Uninstall leaves foreign hooks intact
+        run: |
+          ./dhun/skills/dhun/install.sh --dir /tmp/cfg --uninstall
+          python3 - <<'PY'
+          import json, os
+          h = json.load(open("/tmp/cfg/settings.json"))["hooks"]
+          assert h == {"Stop":[{"hooks":[{"type":"command","command":"echo FOREIGN"}]}]}, h
+          assert not os.path.exists("/tmp/cfg/dhun"), "install dir not removed"
+          print("uninstall OK")
+          PY
+
+  windows:
+    name: windows-latest (${{ matrix.shell }})
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # powershell = Windows PowerShell 5.1 (what teammates actually have)
+        # pwsh       = PowerShell 7
+        shell: [powershell, pwsh]
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: PowerShell parses
+        run: |
+          $ErrorActionPreference = "Stop"
+          foreach ($f in @("dhun/skills/dhun/install.ps1","dhun/skills/dhun/hooks/dhun-play.ps1")) {
+            $errs = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path $f), [ref]$null, [ref]$errs) | Out-Null
+            if ($errs) { $errs | ForEach-Object { Write-Host $_ }; throw "parse failed: $f" }
+            Write-Host "ok  $f"
+          }
+
+      # No sound device on a runner, so PlaySync() can't be asserted. Load() parses
+      # the WAV header without touching hardware — it proves the file is a valid,
+      # playable WAV and that SoundPlayer accepts it.
+      - name: WAV files are valid and loadable by SoundPlayer
+        run: |
+          $ErrorActionPreference = "Stop"
+          foreach ($n in @("done","attention","permission","error")) {
+            $f = (Resolve-Path "dhun/skills/dhun/sounds/wav/$n.wav").Path
+
+            # Header check works on any PowerShell, no assemblies required.
+            $b = [System.IO.File]::ReadAllBytes($f)
+            $riff = [System.Text.Encoding]::ASCII.GetString($b[0..3])
+            $wave = [System.Text.Encoding]::ASCII.GetString($b[8..11])
+            if ($riff -ne "RIFF" -or $wave -ne "WAVE") { throw "$n.wav is not a RIFF/WAVE file" }
+
+            # SoundPlayer is built into .NET Framework (PS 5.1) but not always present
+            # on PS 7. Assert when available, skip loudly when not.
+            $sp = $null
+            try { $sp = New-Object Media.SoundPlayer $f } catch { }
+            if ($sp) { $sp.Load(); Write-Host "ok  $n.wav  RIFF/WAVE + SoundPlayer.Load()" }
+            else     { Write-Host "ok  $n.wav  RIFF/WAVE (SoundPlayer unavailable here - skipped)" }
+          }
+
+      - name: Install
+        run: |
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Force -Path C:\cfg | Out-Null
+          '{"theme":"dark","hooks":{"Stop":[{"hooks":[{"type":"command","command":"echo FOREIGN"}]}]}}' |
+            Set-Content C:\cfg\settings.json
+          .\dhun\skills\dhun\install.ps1 -Dir C:\cfg
+
+      - name: Assert merged config
+        run: |
+          $ErrorActionPreference = "Stop"
+          $h = (Get-Content C:\cfg\settings.json -Raw | ConvertFrom-Json).hooks
+          $got  = @($h.Notification | ForEach-Object { $_.matcher })
+          $want = @("agent_needs_input","idle_prompt")
+          if ("$got" -ne "$want") { throw "matchers [$got] != [$want]" }
+          $cmds = @($h.Stop | ForEach-Object { $_.hooks } | ForEach-Object { $_.command })
+          if ($cmds -notcontains "echo FOREIGN") { throw "foreign hook was clobbered" }
+          if (-not ($cmds -match "dhun"))        { throw "dhun Stop hook missing" }
+          if ($h.PSObject.Properties.Name -contains "PostToolUse") {
+            throw "must not wire PostToolUse - it never fires on failure" }
+          if (-not $h.PostToolUseFailure) { throw "PostToolUseFailure missing" }
+          if (-not $h.PermissionRequest)   { throw "PermissionRequest missing" }
+          if (-not $h.Elicitation)         { throw "Elicitation missing" }
+          Write-Host "merged config OK"
+
+      - name: Assert idempotency
+        run: |
+          $ErrorActionPreference = "Stop"
+          .\dhun\skills\dhun\install.ps1 -Dir C:\cfg | Out-Null
+          $h = (Get-Content C:\cfg\settings.json -Raw | ConvertFrom-Json).hooks
+          if (@($h.Stop).Count -ne 2)         { throw "re-install duplicated: $(@($h.Stop).Count)" }
+          if (@($h.Notification).Count -ne 2)      { throw "notification count $(@($h.Notification).Count)" }
+          if (@($h.PermissionRequest).Count -ne 1) { throw "PermissionRequest duplicated" }
+          if (@($h.Elicitation).Count -ne 1)       { throw "Elicitation duplicated" }
+          Write-Host "idempotent OK"
+
+      - name: Mute suppresses playback
+        env:
+          DHUN_DRY_RUN: C:\played.log
+        run: |
+          $ErrorActionPreference = "Stop"
+          Set-Content C:\played.log -Value ""
+          New-Item -ItemType File -Force -Path C:\cfg\dhun\muted.error | Out-Null
+          & C:\cfg\dhun\hooks\dhun-play.ps1 error 0.75
+          if ((Get-Content C:\played.log | Where-Object { $_ -match "PLAYED" }).Count -ne 0) {
+            throw "mute ignored" }
+          Remove-Item C:\cfg\dhun\muted.error -Force
+          & C:\cfg\dhun\hooks\dhun-play.ps1 error 0.75
+          if (@(Get-Content C:\played.log | Where-Object { $_ -match "PLAYED error" }).Count -ne 1) {
+            Get-Content C:\played.log; throw "unmute failed" }
+          Write-Host "mute + unmute OK"
+
+      - name: Uninstall leaves foreign hooks intact
+        run: |
+          $ErrorActionPreference = "Stop"
+          .\dhun\skills\dhun\install.ps1 -Dir C:\cfg -Uninstall
+          $h = (Get-Content C:\cfg\settings.json -Raw | ConvertFrom-Json).hooks
+          $cmds = @($h.Stop | ForEach-Object { $_.hooks } | ForEach-Object { $_.command })
+          if ($cmds -notcontains "echo FOREIGN") { throw "foreign hook lost" }
+          if ($cmds -match "dhun")               { throw "dhun hook survived uninstall" }
+          if (Test-Path C:\cfg\dhun)             { throw "install dir not removed" }
+          Write-Host "uninstall OK"
