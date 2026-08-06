@@ -30,8 +30,8 @@
     {
       "name": "dhun",
       "source": "./dhun",
-      "version": "0.1.1",
-      "description": "Sound cues for Claude Code: a chime when a turn ends, and distinct sounds when Claude needs your approval or a tool call fails. Install once, works globally."
+      "version": "0.2.0",
+      "description": "Sound cues for Claude Code: a chime when a turn ends, distinct sounds when Claude needs approval or a tool call fails, and one that fires when you praise it. Install once, works globally."
     }
   ]
 }

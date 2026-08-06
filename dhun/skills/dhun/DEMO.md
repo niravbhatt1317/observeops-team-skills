@@ -7,7 +7,7 @@ Turn your volume up. One prompt at a time.
 
 ---
 
-## 0. Warm-up — hear all three at once
+## 0. Warm-up — hear all five at once
 
 ```
 /dhun test
@@ -93,6 +93,32 @@ After ~60s idle → **"Kuchu puchu tum kaha ho"** *("Kuchu puchu, where are you?
 This is the one worth understanding: **permission and idle are different sounds**,
 because they're different problems. One means *decide something*; the other means
 *come back*. Same hook event, split by notification type.
+
+---
+
+## 3c. The praise sound 🎙️
+
+```
+thanks, that's perfect
+```
+
+Fires the *instant you press enter* — before Claude has read a word of it. This is the
+one sound that comes from you rather than from Claude.
+
+Then show the discrimination, which is the actually impressive part:
+
+```
+make the header perfect
+```
+
+Silence. Same word, no sound: praise is an interjection, an instruction is not. Two
+more if the room is interested — `no thanks` (silent) and `perfect!` (fires).
+
+To check any phrase without typing it as a real prompt:
+
+```
+/dhun why "kya baat hai"
+```
 
 ---
 

@@ -21,6 +21,7 @@ globally on their own machines. Maintained by Nirav Bhatt (nirav.bhatt@motadata.
 | `publish` | 0.2.0 | Push the current project to GitHub and deploy it live on GitHub Pages, returning a copyable URL. Framework-aware (HTML, Vite/React/Vue, Angular, CRA, Gatsby, Astro; warns on SSR). |
 | `tata` | 0.3.0 | "Heading out" wrap-up: create/update `CLAUDE.md` + `HANDOFF.md` so the next session has context. Default does NOT publish; `/tata publish` saves AND goes live (explicit opt-in keeps it safe in auto mode). |
 | `tatago` | 0.1.1 | Shortcut that does both at once: runs `tata` (save context) then `publish` (go live). Posts a non-blocking "publishing live now…" heads-up first. Thin orchestrator — invokes the `tata` and `publish` skills via the Skill tool. |
+| `dhun` | 0.2.0 | Sound cues for Claude Code, installed as hooks in `settings.json`. Chime on turn end; meme clips on approval-needed, idle, tool failure, and praise. **The only plugin here that ships code and binary assets** — see the exceptions below. |
 
 ## Structure
 ```
@@ -60,6 +61,18 @@ rely on Claude choosing to stop (see the tata decoupling in HANDOFF.md).
 To add a NEW skill: create `<name>/.claude-plugin/plugin.json` and
 `<name>/skills/<name>/SKILL.md`, add an entry to `marketplace.json` `plugins`,
 document it in `README.md`, then follow the routine above.
+
+### `dhun` departs from this routine in three ways
+- **Step 2 does not apply.** dhun has no copy in `~/.claude-max/skills/` — it is
+  installed as a *plugin* (`/plugin install dhun`), so the maintainer's copy updates
+  by re-installing, not by `cp`. The other three predate that and still need the `cp`.
+- **It ships executable code and ~2 MB of audio,** not just instructions. Changing a
+  hook script means re-running `install.sh` for the change to take effect anywhere;
+  editing a sound in the repo does nothing until you do.
+- **It has CI** (`.github/workflows/dhun.yml`, path-filtered to `dhun/skills/dhun/**`).
+  Anything touching the hooks, installers or sounds should keep it green — it covers
+  ubuntu × macos × (jq, python3) and Windows on PowerShell 5.1 and 7. Full design
+  notes live in [`dhun/CLAUDE.md`](dhun/CLAUDE.md).
 
 ## Manifest schema rules (these caused real install failures — get them right)
 - `marketplace.json`: requires top-level **`name`** (string, kebab-case, not a

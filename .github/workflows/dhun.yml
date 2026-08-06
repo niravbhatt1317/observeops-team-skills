@@ -72,6 +72,93 @@ jobs:
             echo "wrong file passed:"; cat /tmp/invoked.log; exit 1; }
           echo "backend invocation OK: $(cat /tmp/invoked.log)"
 
+      # The praise hook is the only one that makes a decision, so it is the only one
+      # that can be wrong in a way nobody notices until it fires on every message.
+      - name: Praise detector fires and stays silent in the right places
+        run: |
+          chmod +x dhun/skills/dhun/hooks/*.sh
+          fails=0
+          check() {   # check <FIRE|SILENT> <text>
+            : > /tmp/praise.log
+            printf '%s' "$2" | DHUN_DRY_RUN=/tmp/praise.log \
+              ./dhun/skills/dhun/hooks/dhun-praise.sh
+            if grep -q "PLAYED praise" /tmp/praise.log; then got=FIRE; else got=SILENT; fi
+            if [ "$got" != "$1" ]; then
+              printf '  MISS want=%-6s got=%-6s | %s\n' "$1" "$got" "$2"; fails=$((fails+1))
+            fi
+          }
+
+          # strong tier: unambiguous, fires anywhere in the message
+          check FIRE   'thanks'
+          check FIRE   'thank you'
+          check FIRE   'great work'
+          check FIRE   'well done'
+          check FIRE   'shabash'
+          check FIRE   'kya baat hai'
+          check FIRE   "thanks! now add the praise sound to CI and bump the version too"
+          # weak tier: only as a short leading reaction
+          check FIRE   'perfect'
+          check FIRE   'nice'
+          check FIRE   'clean'
+          check FIRE   'perfect, now do the windows installer'
+          # hard negatives outrank the strong tier, because they are built from it
+          check SILENT 'no thanks'
+          check SILENT "thanks but that's wrong"
+          check SILENT 'not great'
+          check SILENT "it doesn't work"
+          # instructions that happen to contain praise words
+          check SILENT 'make it nicer'
+          check SILENT 'make the header perfect and add a hover state on the nav items'
+          check SILENT 'clean up the imports'
+          check SILENT 'update the nice-dashboard project'
+          check SILENT 'fix the chart legend'
+          check SILENT 'is this good?'
+
+          [ "$fails" -eq 0 ] || { echo "$fails praise mismatches"; exit 1; }
+          echo "praise detector OK"
+
+      # Regression guard for the bug that would have been invisible: the payload
+      # carries cwd and transcript_path, so matching the raw JSON means a project
+      # folder named "nice-dashboard" fires the sound on every single prompt.
+      - name: Praise ignores everything outside the prompt field
+        run: |
+          : > /tmp/praise.log
+          printf '%s' '{"session_id":"a1","cwd":"/Users/n/nice-awesome-ui","transcript_path":"/tmp/perfect.jsonl","hook_event_name":"UserPromptSubmit","prompt":"run the build"}' \
+            | DHUN_DRY_RUN=/tmp/praise.log ./dhun/skills/dhun/hooks/dhun-praise.sh
+          [ ! -s /tmp/praise.log ] || { echo "fired on cwd/transcript_path"; cat /tmp/praise.log; exit 1; }
+
+          # ...while a real praise prompt in the same shape still fires.
+          : > /tmp/praise.log
+          printf '%s' '{"cwd":"/Users/n/plain","hook_event_name":"UserPromptSubmit","prompt":"thanks, that worked"}' \
+            | DHUN_DRY_RUN=/tmp/praise.log ./dhun/skills/dhun/hooks/dhun-praise.sh
+          grep -q "PLAYED praise" /tmp/praise.log || { echo "prompt field not read"; exit 1; }
+
+          # A payload that lost its prompt field must go silent, not fall back to
+          # matching the whole JSON blob.
+          : > /tmp/praise.log
+          printf '%s' '{"cwd":"/Users/n/great-work","hook_event_name":"UserPromptSubmit"}' \
+            | DHUN_DRY_RUN=/tmp/praise.log ./dhun/skills/dhun/hooks/dhun-praise.sh
+          [ ! -s /tmp/praise.log ] || { echo "fell back to raw payload"; exit 1; }
+          echo "payload isolation OK"
+
+      # UserPromptSubmit is the one event whose hook output is fed back into the model
+      # as additionalContext. Anything on stdout becomes text in the conversation.
+      - name: Praise hook never writes to stdout
+        run: |
+          for t in 'thanks' 'run the build' '' 'not json' '{"prompt":}'; do
+            out=$(printf '%s' "$t" | ./dhun/skills/dhun/hooks/dhun-praise.sh 2>/dev/null)
+            [ -z "$out" ] || { echo "stdout leak on [$t]: $out"; exit 1; }
+          done
+          echo "stdout clean OK"
+
+      - name: Praise hook always exits 0
+        run: |
+          for t in 'thanks' '' 'garbage' '{"prompt":}' '{}'; do
+            printf '%s' "$t" | ./dhun/skills/dhun/hooks/dhun-praise.sh >/dev/null 2>&1
+            [ $? -eq 0 ] || { echo "non-zero exit on [$t]"; exit 1; }
+          done
+          echo "exit-0 OK"
+
       - name: Mute honours a timed pause and self-expires
         env:
           DHUN_DRY_RUN: /tmp/expiry.log
@@ -115,6 +202,14 @@ jobs:
           assert "PostToolUse" not in h, "must not wire PostToolUse - it never fires on failure"
           assert h["PostToolUseFailure"][0]["matcher"] == "*"
           assert "error" in h["PostToolUseFailure"][0]["hooks"][0]["command"]
+          # UserPromptSubmit takes no matcher, and must not carry a trailing "&":
+          # backgrounding detaches the hook from the stdin payload it has to read.
+          ups = h["UserPromptSubmit"]
+          assert len(ups) == 1, ups
+          assert "matcher" not in ups[0], "UserPromptSubmit takes no matcher"
+          cmd = ups[0]["hooks"][0]["command"]
+          assert "dhun-praise" in cmd, cmd
+          assert not cmd.rstrip().endswith("&"), f"must not background: {cmd}"
           print("merged config OK")
           PY
 
@@ -131,6 +226,7 @@ jobs:
           assert len(h['PermissionRequest'])==1, len(h['PermissionRequest'])
           assert len(h['Elicitation'])==1, len(h['Elicitation'])
           assert len(h['PostToolUseFailure'])==1, len(h['PostToolUseFailure'])
+          assert len(h['UserPromptSubmit'])==1, len(h['UserPromptSubmit'])
           print('idempotent OK')"
 
       - name: Mute suppresses playback
@@ -175,7 +271,9 @@ jobs:
       - name: PowerShell parses
         run: |
           $ErrorActionPreference = "Stop"
-          foreach ($f in @("dhun/skills/dhun/install.ps1","dhun/skills/dhun/hooks/dhun-play.ps1")) {
+          foreach ($f in @("dhun/skills/dhun/install.ps1",
+                           "dhun/skills/dhun/hooks/dhun-play.ps1",
+                           "dhun/skills/dhun/hooks/dhun-praise.ps1")) {
             $errs = $null
             [System.Management.Automation.Language.Parser]::ParseFile(
               (Resolve-Path $f), [ref]$null, [ref]$errs) | Out-Null
@@ -189,7 +287,7 @@ jobs:
       - name: WAV files are valid and loadable by SoundPlayer
         run: |
           $ErrorActionPreference = "Stop"
-          foreach ($n in @("done","attention","permission","error")) {
+          foreach ($n in @("done","attention","permission","error","praise")) {
             $f = (Resolve-Path "dhun/skills/dhun/sounds/wav/$n.wav").Path
 
             # Header check works on any PowerShell, no assemblies required.
@@ -205,6 +303,41 @@ jobs:
             if ($sp) { $sp.Load(); Write-Host "ok  $n.wav  RIFF/WAVE + SoundPlayer.Load()" }
             else     { Write-Host "ok  $n.wav  RIFF/WAVE (SoundPlayer unavailable here - skipped)" }
           }
+
+      # Piping a string to a .ps1 from inside PowerShell feeds the pipeline, not stdin,
+      # so ReadToEnd() would read nothing and every case would "pass" silently. The
+      # hook has to be spawned as a real process -- which is how Claude Code runs it.
+      - name: Praise detector decides correctly (spawned as a real process)
+        env:
+          DHUN_DRY_RUN: C:\praise.log
+        run: |
+          $ErrorActionPreference = "Stop"
+          $hook = (Resolve-Path "dhun/skills/dhun/hooks/dhun-praise.ps1").Path
+          $fails = 0
+          function Check($want, $text) {
+            Set-Content C:\praise.log -Value "" -NoNewline
+            $text | & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $hook
+            $log = Get-Content C:\praise.log -Raw
+            $got = if ($log -and $log -match "PLAYED praise") { "FIRE" } else { "SILENT" }
+            if ($got -ne $want) {
+              Write-Host ("  MISS want={0,-6} got={1,-6} | {2}" -f $want, $got, $text)
+              $script:fails++
+            }
+          }
+          Check FIRE   'thanks'
+          Check FIRE   'great work'
+          Check FIRE   'shabash'
+          Check FIRE   'perfect'
+          Check FIRE   'perfect, now do the windows installer'
+          Check SILENT 'no thanks'
+          Check SILENT 'not great'
+          Check SILENT 'make it nicer'
+          Check SILENT 'update the nice-dashboard project'
+          Check SILENT 'is this good?'
+          Check SILENT '{"cwd":"/Users/n/nice-ui","hook_event_name":"UserPromptSubmit","prompt":"run the build"}'
+          Check FIRE   '{"cwd":"/Users/n/plain","hook_event_name":"UserPromptSubmit","prompt":"thanks, that worked"}'
+          if ($fails -gt 0) { throw "$fails praise mismatches" }
+          Write-Host "praise detector OK"
 
       - name: Install
         run: |
@@ -250,6 +383,10 @@ jobs:
           if (-not $h.PostToolUseFailure) { throw "PostToolUseFailure missing" }
           if (-not $h.PermissionRequest)   { throw "PermissionRequest missing" }
           if (-not $h.Elicitation)         { throw "Elicitation missing" }
+          if (-not $h.UserPromptSubmit)    { throw "UserPromptSubmit missing" }
+          $ups = @($h.UserPromptSubmit)[0].hooks[0].command
+          if ($ups -notmatch "dhun-praise") { throw "praise hook not wired: $ups" }
+          if ($ups.TrimEnd().EndsWith("&")) { throw "must not background: $ups" }
           Write-Host "merged config OK"
 
       - name: Assert idempotency
@@ -261,6 +398,7 @@ jobs:
           if (@($h.Notification).Count -ne 2)      { throw "notification count $(@($h.Notification).Count)" }
           if (@($h.PermissionRequest).Count -ne 1) { throw "PermissionRequest duplicated" }
           if (@($h.Elicitation).Count -ne 1)       { throw "Elicitation duplicated" }
+          if (@($h.UserPromptSubmit).Count -ne 1)  { throw "UserPromptSubmit duplicated" }
           Write-Host "idempotent OK"
 
       - name: Mute suppresses playback

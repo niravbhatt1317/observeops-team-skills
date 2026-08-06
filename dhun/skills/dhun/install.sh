@@ -42,9 +42,9 @@ else
   exit 1
 fi
 
-# merge_json <settings> <play> <errh> <mode>   -> writes <settings>.tmp
+# merge_json <settings> <play> <praise> <mode>   -> writes <settings>.tmp
 merge_json() {
-  _s=$1; _play=$2; _errh=$3; _mode=$4
+  _s=$1; _play=$2; _praise=$3; _mode=$4
   if [ "$JSON" = jq ]; then
     if [ "$_mode" = uninstall ]; then
       jq '
@@ -57,7 +57,7 @@ merge_json() {
         | if (.hooks // {}) == {} then del(.hooks) else . end
       ' "$_s" > "$_s.tmp"
     else
-      jq --arg play "$_play" --arg errh "$_errh" '
+      jq --arg play "$_play" --arg praise "$_praise" '
         .hooks //= {}
         | .hooks |= with_entries(
             .value |= map(select(
@@ -70,14 +70,20 @@ merge_json() {
             {matcher:"idle_prompt",       hooks:[{type:"command", command:($play + " attention 0.75 &")}]}
           ])
         | .hooks.PostToolUseFailure = ((.hooks.PostToolUseFailure // []) + [{matcher:"*", hooks:[{type:"command", command:($play + " error 0.75 &")}]}])
+        # $praise arrives complete, redirect included: the redirect is POSIX syntax
+        # and must not be appended on the Windows branch. No trailing "&" either,
+        # unlike every other hook -- this one reads the payload off stdin, and
+        # backgrounding would detach it from that stdin. It backgrounds playback
+        # internally instead.
+        | .hooks.UserPromptSubmit = ((.hooks.UserPromptSubmit // []) + [{hooks:[{type:"command", command:$praise}]}])
         | .hooks |= with_entries(select(.value | length > 0))
       ' "$_s" > "$_s.tmp"
     fi
   else
-    DHUN_S="$_s" DHUN_PLAY="$_play" DHUN_ERRH="$_errh" DHUN_MODE="$_mode" python3 - <<'PY'
+    DHUN_S="$_s" DHUN_PLAY="$_play" DHUN_PRAISE="$_praise" DHUN_MODE="$_mode" python3 - <<'PY'
 import json, os
-s, play, errh, mode = (os.environ[k] for k in
-                       ("DHUN_S", "DHUN_PLAY", "DHUN_ERRH", "DHUN_MODE"))
+s, play, praise, mode = (os.environ[k] for k in
+                         ("DHUN_S", "DHUN_PLAY", "DHUN_PRAISE", "DHUN_MODE"))
 with open(s) as f:
     cfg = json.load(f)
 hooks = cfg.get("hooks", {})
@@ -102,6 +108,8 @@ if mode != "uninstall":
     ])
     hooks.setdefault("PostToolUseFailure", []).append(
         {"matcher": "*", "hooks": [{"type": "command", "command": play + " error 0.75 &"}]})
+    # praise arrives complete, redirect included -- see the jq branch for why.
+    hooks.setdefault("UserPromptSubmit", []).append(cmd(praise))
 
 hooks = {k: v for k, v in hooks.items() if v}
 if hooks:
@@ -154,14 +162,21 @@ for CONFIG in $TARGETS; do
   case "$(uname -s 2>/dev/null)" in
     CYGWIN*|MINGW*|MSYS*|Windows_NT)
       _p=$(cygpath -w "$DEST/hooks/dhun-play.ps1" 2>/dev/null || echo "$DEST/hooks/dhun-play.ps1")
+      _r=$(cygpath -w "$DEST/hooks/dhun-praise.ps1" 2>/dev/null || echo "$DEST/hooks/dhun-praise.ps1")
       PLAY="powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"$_p\""
+      # No shell redirect here: PowerShell may be the interpreter, and >/dev/null is
+      # not valid there. dhun-praise.ps1 keeps itself silent instead.
+      PRAISE="powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"$_r\""
       ;;
     *)
       PLAY="$DEST/hooks/dhun-play.sh"
+      # Belt and braces: the script writes nothing to stdout anyway, but this hook is
+      # the one whose output would be injected into the model as additionalContext.
+      PRAISE="$DEST/hooks/dhun-praise.sh >/dev/null 2>&1"
       ;;
   esac
 
-  merge_json "$SETTINGS" "$PLAY" "" install && mv "$SETTINGS.tmp" "$SETTINGS"
+  merge_json "$SETTINGS" "$PLAY" "$PRAISE" install && mv "$SETTINGS.tmp" "$SETTINGS"
 
   validate_json "$SETTINGS" || { echo "error: produced invalid JSON, restoring" >&2
                                  mv "$SETTINGS.dhun-backup" "$SETTINGS"; exit 1; }

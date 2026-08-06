@@ -1,11 +1,12 @@
 #!/bin/sh
 # dhun control — test, mute and inspect an installed sound pack.
 #
-#   dhunctl.sh test [done|attention|permission|error]
-#   dhunctl.sh pause [30m|2h|1d] [done|attention|permission|error]
-#   dhunctl.sh resume [done|attention|error|all]
+#   dhunctl.sh test [done|attention|permission|error|praise]
+#   dhunctl.sh pause [30m|2h|1d] [done|attention|permission|error|praise]
+#   dhunctl.sh resume [done|attention|error|praise|all]
 #   dhunctl.sh status
 #   dhunctl.sh doctor
+#   dhunctl.sh why "some phrase"    would this phrase fire the praise sound?
 #
 # Mute is a flag file, so it takes effect immediately — no session restart.
 
@@ -13,7 +14,7 @@ set -u
 
 BASE=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 PLAY="$BASE/hooks/dhun-play.sh"
-EVENTS="done attention permission error"
+EVENTS="done attention permission error praise"
 
 # "90m" / "2h" / "1d" -> seconds
 to_seconds() {
@@ -49,6 +50,7 @@ case "$cmd" in
   test)
     for e in ${1:-$EVENTS}; do
       printf '  %-10s ' "$e"
+      if [ ! -f "$BASE/sounds/wav/$e.wav" ]; then echo "missing — no $e.wav installed"; continue; fi
       # Bypass mute for tests — you asked to hear it.
       case "$(uname -s)" in
         Darwin) afplay -v 0.75 "$BASE/sounds/wav/$e.wav" ;;
@@ -62,7 +64,7 @@ case "$cmd" in
     dur=""; ev=""
     for a in "$@"; do
       case "$a" in
-        done|attention|permission|error) ev=$a ;;
+        done|attention|permission|error|praise) ev=$a ;;
         *) dur=$a ;;
       esac
     done
@@ -96,6 +98,23 @@ case "$cmd" in
       d=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$BASE/sounds/wav/$e.wav" 2>/dev/null)
       printf "  %-12s %-10s %s\n" "$e" "$(mute_state "$e")" "$e.wav${d:+ (${d%.*}s)}"
     done
+    ;;
+
+  why)
+    # Answers "would this have played?" without a restart or a real prompt. The
+    # praise hook is the only one that makes a decision, so it is the only one worth
+    # interrogating -- and the only place a wrong answer is invisible until someone
+    # complains that it fires on every message.
+    phrase=${1:-}
+    if [ -z "$phrase" ]; then echo "usage: dhunctl.sh why \"some phrase\""; exit 0; fi
+    log=$(mktemp 2>/dev/null || echo /tmp/dhun-why.$$)
+    printf '%s' "$phrase" | DHUN_DRY_RUN="$log" "$BASE/hooks/dhun-praise.sh"
+    if grep -q "PLAYED praise" "$log" 2>/dev/null; then
+      echo "PRAISE   \"$phrase\""
+    else
+      echo "silent   \"$phrase\""
+    fi
+    rm -f "$log"
     ;;
 
   doctor)

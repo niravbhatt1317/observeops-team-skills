@@ -2,20 +2,21 @@
 name: dhun
 description: >-
   Dhun (धुन — "tune"). Give Claude Code a voice: distinct sounds when Claude
-  finishes a turn, needs your input, or a tool call fails — so you know what's
-  happening without watching the terminal. Installs sound hooks globally for
-  every project and every surface (terminal, VS Code, JetBrains, desktop app)
-  on this machine. Use when someone says: install dhun, set up sounds, sound
-  notifications, play a sound when Claude finishes or errors, mute/pause the
+  finishes a turn, needs your input, or a tool call fails — plus one that fires
+  back when you praise it — so you know what's happening without watching the
+  terminal. Installs sound hooks globally for every project and every surface
+  (terminal, VS Code, JetBrains, desktop app) on this machine. Use when someone
+  says: install dhun, set up sounds, sound notifications, play a sound when
+  Claude finishes or errors, play a sound when I say thanks, mute/pause the
   sounds, resume sounds, change a notification sound or volume, or "I can't
   hear anything".
-argument-hint: "[install|test|status|pause|resume|doctor|set|volume|uninstall] [args]"
+argument-hint: "[install|test|status|pause|resume|doctor|why|set|volume|uninstall] [args]"
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 
 # dhun — sound cues for Claude Code
 
-Three sounds, three lifecycle events:
+Five sounds, five lifecycle events:
 
 | Event | Sound | Meaning |
 |---|---|---|
@@ -23,6 +24,7 @@ Three sounds, three lifecycle events:
 | `PermissionRequest` / `Elicitation` / `Notification`→`agent_needs_input` | *"Ye koi tareeka hai bheek mangne ka?"* | Claude is blocked, needs approval |
 | `Notification` → `idle_prompt` | *"Kuchu puchu tum kaha ho"* | You've gone idle |
 | `PostToolUseFailure` | *"Are maalik wo thoda sa galti ho gayi"* | A tool call failed |
+| `UserPromptSubmit` | *owww* | You praised Claude |
 
 The skill is an **installer and manager**. The sounds are played by hooks in
 `settings.json` — not by this skill. That matters when debugging: if the hooks are
@@ -56,6 +58,8 @@ wired yet, otherwise **status**.
 | pause, mute, quiet, stop the sounds | Pause |
 | resume, unmute, turn back on | Resume |
 | doctor, not working, can't hear anything | Doctor |
+| why did/didn't the praise sound fire | Why |
+| praise sound fires too often / never fires | Why, then tune the tiers |
 | change/swap a sound | Set a sound |
 | louder, quieter, volume | Volume |
 | uninstall, remove | Uninstall |
@@ -98,10 +102,60 @@ sessions using that alias will see the hooks — VS Code and the desktop app lau
 session start; the running session will stay silent. This is the single most common
 "it doesn't work" report. Then offer the demo sequence in `DEMO.md`.
 
+## The praise sound
+
+`UserPromptSubmit` fires the instant the user presses enter — **before Claude sees the
+message**. So `dhun-praise.sh` reads the payload, decides, and plays. Claude is not in
+the loop, and nothing about this depends on the model noticing anything.
+
+It decides in four steps. Read them in order; each exists because the one before it
+would otherwise be wrong:
+
+1. **Hard negatives** — `no thanks`, `thanks but`, `not great`, `it doesn't work`.
+   These outrank everything below, because they are *built out of* praise words.
+2. **Strong tier** — unambiguous praise (`thanks`, `great work`, `well done`,
+   `shabash`, `kya baat`, 🎉). Fires anywhere in the message, so
+   *"thanks! now refactor the auth module"* still counts.
+3. **Request guard** — kills the weak tier for `make it nicer`, `is this good?`,
+   `update the …`. Applies only to the weak tier, so step 2 is unaffected.
+4. **Weak tier** — bare adjectives that double as instructions (`perfect`, `nice`,
+   `clean`). Only fires as a **leading clause of ≤ 3 words**, which is what separates
+   *"perfect!"* from *"make the header perfect and add a hover state"*.
+
+**To answer "why did/didn't it fire", don't reason about it — run it:**
+
+```sh
+"$DHUN_DIR/hooks/dhunctl.sh" why "perfect, now ship it"     # -> PRAISE
+"$DHUN_DIR/hooks/dhunctl.sh" why "make the spacing nicer"   # -> silent
+```
+
+Tuning knobs, in order of usefulness: `DHUN_PRAISE_MAXWORDS` (default 3) widens or
+narrows the weak tier; `DHUN_PRAISE_MAXLEN` (default 40) is a secondary char guard;
+`DHUN_VOLUME_PRAISE` sets volume. To add a phrase, edit the `STRONG` or `WEAK` list in
+`$SKILL_DIR/hooks/dhun-praise.sh` **and** the matching list in `dhun-praise.ps1` — the
+two must stay in step — then re-run `install.sh`.
+
+Three constraints on this hook specifically. Do not "clean these up":
+
+- **It must never write to stdout.** `UserPromptSubmit` is the one event whose output
+  is fed back into the model as `additionalContext`, so a stray `echo` becomes text in
+  the conversation. CI asserts stdout stays empty.
+- **Its hook command must not end in `&`.** Every other dhun hook backgrounds itself
+  that way, but this one has to read the payload off stdin, and backgrounding detaches
+  it from that stdin. It backgrounds the *playback* internally instead.
+- **It must never match the raw payload.** The JSON also carries `cwd`,
+  `session_id` and `transcript_path` — so grepping the blob means a project folder
+  named `nice-dashboard` fires the sound on every prompt, forever. The `prompt` field
+  is extracted first. CI has a regression test for exactly this.
+
+Known limitation: **sarcasm reads as praise.** *"great, it broke again"* fires. Fixing
+it properly needs sentiment, not pattern matching; `pause praise` is the answer if it
+ever grates.
+
 ## Test
 
 ```sh
-"$DHUN_DIR/hooks/dhunctl.sh" test              # all three
+"$DHUN_DIR/hooks/dhunctl.sh" test              # all five
 "$DHUN_DIR/hooks/dhunctl.sh" test error        # just one
 ```
 
@@ -143,11 +197,13 @@ dhunctl.sh resume error          # one event
 ```
 
 Suggest `pause error` when someone is deep in a debugging session — that sound fires
-most and annoys first. Suggest a timed `pause` before meetings and screen shares.
+most and annoys first. Suggest `pause praise` on a screen share, where a meme firing
+because someone typed "perfect" is the wrong kind of memorable. Suggest a timed `pause`
+before meetings.
 
 ## Set a sound
 
-Replace any of `done`, `attention`, `permission`, `error`.
+Replace any of `done`, `attention`, `permission`, `error`, `praise`.
 
 **From a local file:**
 
@@ -172,10 +228,10 @@ ffmpeg -y -i INPUT -af "loudnorm=I=-16:TP=-1.5:LRA=11" \
 
 **Keep `Stop` short — ideally a chime, not speech.** It fires on every turn, dozens of
 times an hour. A voice clip is funny at ten repetitions and unbearable at fifty. The
-voice memes work on `Notification` and `PostToolUse` precisely because those are rare.
-Push back if someone asks for a long clip on `Stop`.
+voice memes work on `Notification`, `PostToolUseFailure` and `UserPromptSubmit`
+precisely because those are rare. Push back if someone asks for a long clip on `Stop`.
 
-Always normalize to −16 LUFS so all three sit at equal loudness.
+Always normalize to −16 LUFS so all five sit at equal loudness.
 
 ## Volume
 
@@ -200,8 +256,13 @@ WAV is canonical because Windows' `Media.SoundPlayer` accepts nothing else. The 
 copies are for sharing, never used by hooks.
 
 `dhun-play.sh` detects macOS (`afplay`), Linux (`paplay`/`ffplay`/`aplay`/`mpv`),
-Windows and WSL (PowerShell). **The Windows and Linux paths are written but not yet
-tested on those platforms** — say so if someone asks, rather than claiming support.
+Windows and WSL (PowerShell).
+
+**Windows and Linux are verified in CI** — ubuntu × macos × (jq, python3), plus Windows
+on PowerShell 5.1 and 7. What CI cannot prove is that a sound is *audible*: runners have
+no sound device, so audio has only ever been heard on macOS. If someone asks about
+platform support, that is the honest split — the logic is tested everywhere, the
+loudspeaker only on a Mac. WSL is untested either way.
 
 Both hook scripts always `exit 0`: a missing audio player must never fail a tool call.
 
