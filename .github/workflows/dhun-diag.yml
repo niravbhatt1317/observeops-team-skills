@@ -1,22 +1,35 @@
 name: dhun-diag
-on: [push, workflow_dispatch]
+on:
+  push:
+  workflow_dispatch:
 jobs:
-  diag:
+  ps51:
     runs-on: windows-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        shell: [powershell, pwsh]
     steps:
       - uses: actions/checkout@v4
-      - name: Clean install then dump raw JSON
-        shell: ${{ matrix.shell }}
+      - name: Clean install (Windows PowerShell 5.1)
+        shell: powershell
         run: |
           New-Item -ItemType Directory -Force -Path C:\clean | Out-Null
-          '{}' | Set-Content C:\clean\settings.json
+          Set-Content C:\clean\settings.json -Value "{}"
           .\dhun\skills\dhun\install.ps1 -Dir C:\clean | Out-Null
           Write-Host "===== RAW ====="
           Get-Content C:\clean\settings.json -Raw
-      - name: Strict shape check
+      - name: Shape check
         shell: bash
-        run: python .github/workflows/check_shape.py 'C:/clean/settings.json'
+        run: python tools/check_shape.py 'C:/clean/settings.json'
+  ps7:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clean install (PowerShell 7)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path C:\clean | Out-Null
+          Set-Content C:\clean\settings.json -Value "{}"
+          .\dhun\skills\dhun\install.ps1 -Dir C:\clean | Out-Null
+          Write-Host "===== RAW ====="
+          Get-Content C:\clean\settings.json -Raw
+      - name: Shape check
+        shell: bash
+        run: python tools/check_shape.py 'C:/clean/settings.json'
