@@ -25,10 +25,21 @@ else           { $targets += $(if ($env:CLAUDE_CONFIG_DIR) { $env:CLAUDE_CONFIG_
                                else { Join-Path $env:USERPROFILE ".claude" }) }
 
 # PowerShell 5.1 has no ConvertFrom-Json -AsHashtable, so convert by hand.
+#
+# Arrays MUST be returned with the unary comma operator. PowerShell unrolls a
+# single-element array on return, so "return @($x)" hands back $x itself and an empty
+# array comes back as $null. That is not cosmetic: it silently rewrote a one-entry
+# "permissions": {"allow": [...]} into a bare string, "deny": [] into null, and any
+# foreign hook entry's one-element "hooks" array into an object -- producing
+# "Settings file failed to parse: Expected array, but received object" and switching
+# off every permission rule in the file. Do not simplify this back to "return @(...)".
 function ConvertTo-Hashtable($obj) {
   if ($null -eq $obj) { return $null }
-  if ($obj -is [System.Collections.IEnumerable] -and $obj -isnot [string]) {
-    return @($obj | ForEach-Object { ConvertTo-Hashtable $_ })
+  if ($obj -is [string]) { return $obj }
+  if ($obj -is [System.Collections.IEnumerable]) {
+    $out = @()
+    foreach ($item in $obj) { $out += ,(ConvertTo-Hashtable $item) }
+    return ,$out
   }
   if ($obj -is [PSCustomObject]) {
     $h = @{}
@@ -36,6 +47,16 @@ function ConvertTo-Hashtable($obj) {
     return $h
   }
   return $obj
+}
+
+# Re-wrap an entry's inner "hooks" list. Needed to REPAIR files an earlier dhun
+# already flattened: those foreign entries now carry an object where the schema wants
+# an array, and re-installing has to put them back rather than preserve the damage.
+function Repair-Entry($entry) {
+  if ($entry -is [System.Collections.IDictionary] -and $entry.Contains("hooks")) {
+    $entry["hooks"] = @($entry["hooks"])
+  }
+  return $entry
 }
 
 function Test-DhunEntry($entry) {
@@ -64,7 +85,8 @@ foreach ($config in ($targets | Select-Object -Unique)) {
   # Strip previous dhun entries first, so re-running is idempotent.
   $clean = @{}
   foreach ($k in $hooks.Keys) {
-    $kept = @(@($hooks[$k]) | Where-Object { -not (Test-DhunEntry $_) })
+    $kept = @(@($hooks[$k]) | Where-Object { -not (Test-DhunEntry $_) } |
+              ForEach-Object { Repair-Entry $_ })
     if ($kept.Count -gt 0) { $clean[$k] = $kept }
   }
   $hooks = $clean

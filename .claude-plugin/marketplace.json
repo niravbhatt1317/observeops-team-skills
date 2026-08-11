@@ -25,12 +25,12 @@
       "name": "tatago",
       "source": "./tatago",
       "version": "0.1.1",
-      "description": "Tata, go! One command to save session context (CLAUDE.md + HANDOFF.md) AND publish live \u2014 the short form of '/tata publish'."
+      "description": "Tata, go! One command to save session context (CLAUDE.md + HANDOFF.md) AND publish live — the short form of '/tata publish'."
     },
     {
       "name": "dhun",
       "source": "./dhun",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "description": "Sound cues for Claude Code: a chime when a turn ends, and distinct sounds when Claude needs your approval or a tool call fails. Install once, works globally."
     }
   ]

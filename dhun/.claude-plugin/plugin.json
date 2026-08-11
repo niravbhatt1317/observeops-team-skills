@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "dhun",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Give Claude Code a voice. Distinct sounds when Claude finishes a turn, needs your approval, or a tool call fails - so you know what's happening without watching the terminal. Installs globally, works in every project and every surface.",
   "author": {
     "name": "Nirav Bhatt",

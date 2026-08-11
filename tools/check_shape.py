@@ -1,24 +1,48 @@
+#!/usr/bin/env python3
+"""Strict shape check for a Claude Code settings.json.
+
+Exists because PowerShell's array handling can silently turn a one-element JSON
+array into a bare object, and the PowerShell-side assertions in CI could not see
+it: member access like $h.Stop.hooks.command works whether hooks is an array or a
+single object, so a corrupt file looked healthy. Parse with something that cares
+about the difference.
+"""
 import json, sys
+
 cfg = json.load(open(sys.argv[1]))
-h = cfg.get("hooks")
-print("hooks type:", type(h).__name__)
 bad = []
-for ev, v in (h or {}).items():
-    print("  %-22s -> %s" % (ev, type(v).__name__))
+
+def want_list(path, v):
     if not isinstance(v, list):
-        bad.append("hooks.%s is %s, expected list" % (ev, type(v).__name__))
-        v = [v]
-    for i, e in enumerate(v):
-        inner = e.get("hooks") if isinstance(e, dict) else None
-        print("      [%d].hooks -> %s" % (i, type(inner).__name__))
-        if not isinstance(inner, list):
-            bad.append("hooks.%s[%d].hooks is %s, expected list" % (ev, i, type(inner).__name__))
-print()
-perm = cfg.get("permissions")
-if isinstance(perm, dict):
-    for k, v in perm.items():
-        print("  permissions.%-10s -> %s  %r" % (k, type(v).__name__, v))
-        if not isinstance(v, list):
-            bad.append("permissions.%s is %s, expected list" % (k, type(v).__name__))
-print()
-print("VERDICT:", ("BROKEN -> " + "; ".join(bad)) if bad else "all arrays correct")
+        bad.append("%s is %s, expected array" % (path, type(v).__name__))
+        return False
+    return True
+
+hooks = cfg.get("hooks")
+if hooks is not None:
+    if isinstance(hooks, dict):
+        for ev, entries in hooks.items():
+            if not want_list("hooks.%s" % ev, entries):
+                continue
+            for i, e in enumerate(entries):
+                want_list("hooks.%s[%d].hooks" % (ev, i), (e or {}).get("hooks"))
+    else:
+        bad.append("hooks is %s, expected object" % type(hooks).__name__)
+
+perms = cfg.get("permissions")
+if isinstance(perms, dict):
+    for k in ("allow", "deny", "ask", "additionalDirectories"):
+        if k in perms:
+            want_list("permissions.%s" % k, perms[k])
+
+for key in ("enabledPlugins", "enableAllProjectMcpServers"):
+    pass  # shape varies by version; not asserted
+
+if bad:
+    print("SHAPE BROKEN:")
+    for b in bad:
+        print("  -", b)
+    print("\n--- file ---")
+    print(json.dumps(cfg, indent=2)[:2000])
+    sys.exit(1)
+print("shape OK: every array is still an array")
