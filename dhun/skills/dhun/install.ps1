@@ -103,8 +103,9 @@ foreach ($config in ($targets | Select-Object -Unique)) {
   Copy-Item -Path (Join-Path $src "sounds") -Destination $dest -Recurse -Force
   Copy-Item -Path (Join-Path $src "hooks")  -Destination $dest -Recurse -Force
 
-  $ps   = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File"
-  $play = "$ps `"$(Join-Path $dest 'hooks\dhun-play.ps1')`""
+  $ps     = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File"
+  $play   = "$ps `"$(Join-Path $dest 'hooks\dhun-play.ps1')`""
+  $praise = "$ps `"$(Join-Path $dest 'hooks\dhun-praise.ps1')`""
 
   function New-Cmd($c)     { @{ hooks = @(@{ type = "command"; command = $c }) } }
   function New-MCmd($m,$c) { @{ matcher = $m; hooks = @(@{ type = "command"; command = $c }) } }
@@ -117,6 +118,10 @@ foreach ($config in ($targets | Select-Object -Unique)) {
       (New-MCmd "idle_prompt"       "$play attention 0.75"))
   $hooks["PostToolUseFailure"] = @(@($hooks["PostToolUseFailure"]) | Where-Object { $_ }) + @(
       @{ matcher = "*"; hooks = @(@{ type = "command"; command = "$play error 0.75" }) })
+  # stdout is discarded because UserPromptSubmit is the one event whose hook output
+  # is fed back into the model as additionalContext.
+  $hooks["UserPromptSubmit"] = @(@($hooks["UserPromptSubmit"]) | Where-Object { $_ }) + @(
+      New-Cmd "$praise")
 
   $cfg.hooks = $hooks
   $cfg | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $settings

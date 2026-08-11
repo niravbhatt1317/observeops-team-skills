@@ -104,7 +104,7 @@ Then restart Claude Code.
 | `publish` | Push the current project to GitHub and deploy it live on GitHub Pages. Sets up GitHub access on first use, creates the repo, enables Pages, and returns a copyable live URL. Remembers the repo + URL in `CLAUDE.md` so later runs just push and redeploy. |
 | `tata` | Run it when you're leaving for the day. Creates/updates `CLAUDE.md` (whole-project context) and `HANDOFF.md` (this session's summary, decisions, next steps) so the next Claude session resumes with full context. Default does **not** publish; run `/tata publish` to save **and** go live in one step. |
 | `tatago` | The short "do both" command — saves your context **and** publishes live in one go (same as `/tata publish`). |
-| `dhun` | Gives Claude Code a voice. A chime when a turn finishes, and distinct sounds when Claude needs your approval or when a tool call fails — so you can look away and still know what's happening. Installs globally: every project, every folder, terminal **and** VS Code. Run `/dhun pause` to silence it, `/dhun resume` to bring it back. |
+| `dhun` | Gives Claude Code a voice. A chime when a turn finishes, distinct sounds when Claude needs your approval or when a tool call fails, and one that fires back when you say something nice — so you can look away and still know what's happening. Installs globally: every project, every folder, terminal **and** VS Code. Run `/dhun pause` to silence it, `/dhun resume` to bring it back. |
 
 ### Using `/dhun` — hear what Claude is doing
 
@@ -116,14 +116,22 @@ Install it, **restart Claude Code**, and you'll start hearing:
 | 🎙️ *"Ye koi tareeka hai bheek mangne ka?"* | Claude needs your approval and can't continue |
 | 🎙️ *"Kuchu puchu tum kaha ho"* | You've been idle ~60s and Claude is waiting |
 | 🎙️ *"Are maalik wo thoda sa galti ho gayi"* | A tool call failed |
+| 🎙️ *owww* | You praised Claude — "thanks", "perfect", "kya baat" |
 
 Nothing plays when a tool *succeeds* — you hear outcomes, not activity.
 
+The praise sound fires the instant you press enter, before Claude has even read the
+message. It tries hard to tell praise from instructions that merely sound like it —
+`perfect!` plays, `make the header perfect` doesn't; `thanks` plays, `no thanks`
+doesn't. Check any phrase with `/dhun why "..."`.
+
 ```
-/dhun test           # hear all four now, no restart needed
+/dhun test           # hear all five now, no restart needed
 /dhun pause          # silence everything
 /dhun pause 30m      # silence it, auto-resumes (good before a meeting)
 /dhun pause error    # silence just the failure sound
+/dhun pause praise   # silence just the praise sound (screen shares)
+/dhun why "nice one" # would this phrase fire the praise sound?
 /dhun resume
 /dhun status         # what's on, what's paused
 /dhun doctor         # run this if you hear nothing

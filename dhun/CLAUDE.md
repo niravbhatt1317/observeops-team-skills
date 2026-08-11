@@ -1,6 +1,6 @@
 # dhun (धुन — "tune")
 
-Audio cues for Claude Code. Four sounds, mapped to distinct lifecycle events, so you
+Audio cues for Claude Code. Five sounds, mapped to distinct lifecycle events, so you
 know what Claude is doing without watching the terminal.
 
 | Event | Sound | Meaning | Length |
@@ -9,10 +9,15 @@ know what Claude is doing without watching the terminal.
 | `PermissionRequest` · `Elicitation` · `Notification`→`agent_needs_input` | `permission.wav` — *"Ye koi tareeka hai bheek mangne ka?"* | Claude is blocked, needs your approval | 1.71s |
 | `Notification` → `idle_prompt` | `attention.wav` — *"Kuchu puchu tum kaha ho"* | You've gone idle (60s, by design) | 2.50s |
 | `PostToolUseFailure` | `error.wav` — *"Are maalik wo thoda sa galti ho gayi"* | A tool call failed | 3.10s |
+| `UserPromptSubmit` | `praise.wav` — *owww* | You praised Claude | — |
 
-The three voice clips are Hindi memes: *"is this any way to beg?"* when Claude wants
-permission, *"where are you?"* when you've wandered off, and *"sorry boss, small mistake
-happened"* when something breaks.
+The voice clips are memes: *"is this any way to beg?"* when Claude wants permission,
+*"where are you?"* when you've wandered off, *"sorry boss, small mistake happened"* when
+something breaks, and an *owww* when you say something nice.
+
+**Four of the five need no decision** — the event firing *is* the meaning. `praise` is
+the exception and the only place dhun contains logic worth reviewing; see
+[Praise detection](#praise-detection).
 
 ## Install
 
@@ -44,10 +49,12 @@ dhun/                           ← this folder IS the skill; copy it to <config
 ├── hooks/
 │   ├── dhun-play.sh            # cross-platform player: <name> [volume]; honours mute
 │   ├── dhun-play.ps1           # Windows player; same mute contract
-│   └── dhunctl.sh              # test / pause / resume / status / doctor
+│   ├── dhun-praise.sh          # UserPromptSubmit: decides whether a prompt is praise
+│   ├── dhun-praise.ps1         # the same decision on Windows; keep the two in step
+│   └── dhunctl.sh              # test / pause / resume / status / doctor / why
 └── sounds/
-    ├── wav/  done · attention · permission · error   ← canonical
-    ├── mp3/  done · attention · permission · error   ← convenience copies
+    ├── wav/  done · attention · permission · error · praise   ← canonical
+    ├── mp3/  done · attention · permission · error · praise   ← convenience copies
     └── candidates/  unwired alternates (hukum.wav)
 ```
 
@@ -69,6 +76,7 @@ dhunctl.sh pause error           # just the failure sound
 dhunctl.sh pause 30m attention   # one event, timed
 dhunctl.sh resume [event|all]
 dhunctl.sh status                # what's on, what's paused, when it resumes
+dhunctl.sh why "nice one"        # would this phrase fire the praise sound?
 ```
 
 An empty flag file means indefinite; a file containing an epoch timestamp means paused
@@ -88,7 +96,7 @@ Windows is the constraint — `SoundPlayer` refuses anything but WAV and has no 
 control. The MP3 copies exist for size (~35KB vs ~500KB) and for pasting into Slack or
 a phone; the hooks never use them.
 
-All three clips are normalized to **−16 LUFS** with −1.5 dBTP ceiling, so they sit at
+All voice clips are normalized to **−16 LUFS** with −1.5 dBTP ceiling, so they sit at
 equal loudness. Volume is then set per-hook via the play script's second argument
 (default `0.75`).
 
@@ -296,6 +304,74 @@ Unverified: which type fires for the **AskUserQuestion** tool. Not `elicitation_
 `sounds/candidates/` holds clips that aren't wired to anything —
 `hukum.wav` (*"Jo hukum mere aaka"*, 1.60s) is the alternate permission sound.
 
+## Praise detection
+
+`UserPromptSubmit` fires the moment the user presses enter — **before Claude receives
+the message**. The decision is therefore made entirely in `dhun-praise.sh` /
+`dhun-praise.ps1`; the model is not consulted and cannot be. That is what makes the
+feature possible at all: "did the user praise Claude" is answered by pattern matching on
+the prompt, not by asking Claude how it felt.
+
+### Four steps, in this order
+
+| Step | Does | Exists because |
+|---|---|---|
+| 1. Hard negatives | `no thanks`, `thanks but`, `not great`, `doesn't work` → silent | They are *built from* praise words, so they must outrank the strong tier |
+| 2. Strong tier | `thanks`, `great work`, `well done`, `shabash`, `kya baat`, 🎉 → play | Unambiguous, so it can fire mid-sentence: *"thanks! now refactor auth"* counts |
+| 3. Request guard | `make it nicer`, `is this good?`, `update the …` → silent | Instructions routinely contain praise words |
+| 4. Weak tier | `perfect`, `nice`, `clean` as a lead clause of ≤ 3 words → play | Bare adjectives are praise as interjections and instructions otherwise |
+
+The guard in step 3 applies **only** to the weak tier. Putting it first would have
+killed *"thanks, can you also…"*, which is praise plus a request.
+
+**Word count, not character count, is what makes step 4 work.** The first version
+gated on length (≤ 60 chars) and fired on *"update the nice-dashboard project"* — 33
+characters. The giveaway is not that praise is short but that it arrives as an
+interjection: one to three words, then a break.
+
+**A one-word lead skips the request guard.** Otherwise `clean` — which is both a weak
+praise word and a verb in the guard list — could never fire. An instruction needs an
+object, so a bare single word cannot be one.
+
+### Three constraints specific to this hook
+
+- **Never write to stdout.** `UserPromptSubmit` is the only event whose hook output is
+  fed back into the model as `hookSpecificOutput.additionalContext`. A stray `echo`
+  becomes text in the conversation. Asserted in CI.
+- **Never put `&` on the hook command.** Every other dhun hook backgrounds itself in
+  `settings.json`; this one must not, because it reads the payload from stdin and
+  backgrounding detaches it from that stdin. It backgrounds the *playback* internally.
+  Asserted in CI.
+- **Never match the raw payload.** It also carries `cwd`, `session_id` and
+  `transcript_path`. Grepping the blob means a project folder named `nice-dashboard`
+  fires the sound on **every prompt, forever** — and it would look like a detector bug,
+  not a payload bug. The `prompt` field is extracted first, and a payload that somehow
+  lacks that field goes silent rather than falling back to the blob. Both asserted.
+
+`DHUN_DRY_RUN` makes `play()` synchronous. There is no audio to wait for in dry-run
+mode, and detaching would make the decision unobservable — the caller can exit before
+the child appends its line. That is why the CI praise assertions need no `sleep`.
+
+### Tuning
+
+`DHUN_PRAISE_MAXWORDS` (3) is the real knob; `DHUN_PRAISE_MAXLEN` (40) is a secondary
+guard; `DHUN_VOLUME_PRAISE` sets volume. Phrases live in the `STRONG` and `WEAK` lists
+in **both** `dhun-praise.sh` and `dhun-praise.ps1` — they must stay in step, and nothing
+enforces that but the CI cases, which run the same phrase table against both.
+
+`dhunctl.sh why "some phrase"` answers "would this fire?" without a restart. Use it
+instead of reasoning about the regexes.
+
+### Known limitation: sarcasm
+
+*"great, it broke again"* fires. So does *"perfect, now nothing works"*. Detecting this
+needs sentiment analysis, not pattern matching, and a blunt fix — suppressing anything
+containing failure vocabulary — would break *"thanks, that fixed the bug"*, which is
+real praise. Left deliberately unsolved; `pause praise` is the escape hatch.
+
+Related: praise aimed at something other than Claude (*"tailwind is great"*) also
+fires. Same reason, and much rarer.
+
 ## Design decisions
 
 **Use `PostToolUseFailure`, never `PostToolUse`.** They are different events:
@@ -332,6 +408,11 @@ level, re-normalize the file — raising the flag past 1.0 does nothing.
 - `done.wav` is derived from Apple's `Glass.aiff` (a macOS system asset). Fine for
   internal use; replace it with an original or royalty-free chime before publishing
   this anywhere public.
+- `praise.wav` came from <https://soundinstants.com/sound/aww>, licence unverified —
+  the page is behind a Cloudflare challenge and was never read. Shipped knowingly on
+  the same basis as the meme clips: acceptable for an internal notification sound,
+  and the fix if it is ever challenged is a neutral chime in the public plugin with
+  the real clip as a local overlay. Do not assume it is cleared for reuse elsewhere.
 
 ## Changing sounds
 
@@ -351,33 +432,26 @@ ffmpeg -ss START -t LEN -i raw.wav \
 
 ## Status
 
-Working and tested on macOS: install, re-install (idempotent), and uninstall all
-preserve unrelated hooks. Windows and Linux paths are written but **not yet tested on
-those platforms**.
+**Shipped.** dhun is live in the team marketplace alongside `publish`, `tata` and
+`tatago`. Teammates install with `/plugin install dhun` → user scope → restart.
 
-`SKILL.md` is written, so this folder works as a skill today. **Nothing is installed
-anywhere yet** — no config has been modified.
+| | |
+|---|---|
+| Version | 0.2.0 — adds the praise sound on `UserPromptSubmit` |
+| CI | ubuntu × macos × (jq, python3), plus Windows on PowerShell 5.1 and 7 |
+| Verified by ear | macOS only — runners have no sound device |
+| Install target | user scope, so every project and surface on the machine |
 
-### Next: ship it via the team marketplace
+**This folder is the shipping copy.** The development history lives in the archived
+standalone repo (`niravbhatt1317/dhun`); changes to dhun happen here.
 
-Distribution goes through the existing team repo
-[`niravbhatt1317/observeops-team-skills`](https://github.com/niravbhatt1317/observeops-team-skills),
-which is a **plugin marketplace**, not a plain skills folder. Teammates install with
-`/plugin marketplace add …` then `/plugin install dhun`, picking **user scope** so it
-lands globally.
+**Decided: bundle the WAVs rather than fetching them.** The other three plugins are
+pure instruction files; dhun ships ~2 MB of audio, cloned by everyone on
+`marketplace add`. A one-time clone beats adding a network fetch and its failure modes
+to an install that otherwise has zero dependencies. Do not "optimise" this into a
+release-download step without a reason.
 
-To fit that repo, dhun needs restructuring:
-
-```
-dhun/
-├── .claude-plugin/plugin.json      # new manifest, mirroring tata/publish
-└── skills/dhun/                    # SKILL.md + install.sh + hooks/ + sounds/
-```
-
-plus a `dhun` entry in `.claude-plugin/marketplace.json` and a README section.
-
-**Decided: bundle the WAVs in the repo.** The three existing plugins are pure
-instruction files; dhun is the first carrying ~1.5 MB of audio, cloned by every teammate
-on `marketplace add`. That's the accepted cost — a one-time clone beats adding a network
-fetch and its failure modes to an install that currently has zero dependencies. Do not
-"optimise" this later into a release-download step without a reason.
+**The public-repo trade-off was accepted knowingly:** the team repo is public, so the
+meme audio is published under Nirav's name. Judged fine for an internal notification
+sound. If it ever needs undoing, the fix is neutral chimes in the public plugin with
+the memes as a private overlay.
