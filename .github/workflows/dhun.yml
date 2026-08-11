@@ -87,7 +87,7 @@ jobs:
         run: |
           mkdir -p /tmp/cfg
           cat > /tmp/cfg/settings.json <<'JSON'
-          {"theme":"dark","hooks":{"Stop":[{"hooks":[{"type":"command","command":"echo FOREIGN"}]}]}}
+          {"theme":"dark","permissions":{"allow":["Bash(git push:*)"],"deny":[]},"hooks":{"Stop":[{"hooks":[{"type":"command","command":"echo FOREIGN"}]}]}}
           JSON
           ./dhun/skills/dhun/install.sh --dir /tmp/cfg
 
@@ -117,6 +117,9 @@ jobs:
           assert "error" in h["PostToolUseFailure"][0]["hooks"][0]["command"]
           print("merged config OK")
           PY
+
+      - name: settings.json shape survives (arrays stay arrays)
+        run: python3 tools/check_shape.py /tmp/cfg/settings.json
 
       - name: Assert idempotency
         run: |
@@ -207,9 +210,30 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
           New-Item -ItemType Directory -Force -Path C:\cfg | Out-Null
-          '{"theme":"dark","hooks":{"Stop":[{"hooks":[{"type":"command","command":"echo FOREIGN"}]}]}}' |
+          '{"theme":"dark","permissions":{"allow":["Bash(git push:*)"],"deny":[]},"hooks":{"Stop":[{"hooks":[{"type":"command","command":"echo FOREIGN"}]}]}}' |
             Set-Content C:\cfg\settings.json
           .\dhun\skills\dhun\install.ps1 -Dir C:\cfg
+
+      # The PowerShell assertions below cannot see array-vs-object: member access
+      # works either way, which is exactly how the v0.1.0 corruption shipped green.
+      # Parse with something that cares.
+      - name: settings.json shape survives (arrays stay arrays)
+        shell: bash
+        run: python tools/check_shape.py 'C:/cfg/settings.json'
+
+      # Re-installing over a file an older dhun already flattened must REPAIR it,
+      # not preserve the damage.
+      - name: Re-install repairs a previously corrupted file
+        run: |
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Force -Path C:\broken | Out-Null
+          '{"permissions":{"allow":["Bash(git push:*)"],"deny":[]},"hooks":{"Stop":[{"hooks":{"type":"command","command":"echo FOREIGN"}}]}}' |
+            Set-Content C:\broken\settings.json
+          .\dhun\skills\dhun\install.ps1 -Dir C:\broken | Out-Null
+
+      - name: Repaired file has the right shape
+        shell: bash
+        run: python tools/check_shape.py 'C:/broken/settings.json'
 
       - name: Assert merged config
         run: |
