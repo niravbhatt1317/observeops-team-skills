@@ -7,35 +7,16 @@ jobs:
       fail-fast: false
       matrix:
         shell: [powershell, pwsh]
-    defaults:
-      run:
-        shell: ${{ matrix.shell }}
     steps:
       - uses: actions/checkout@v4
-      - name: Clean install, then dump the raw JSON
+      - name: Clean install then dump raw JSON
+        shell: ${{ matrix.shell }}
         run: |
           New-Item -ItemType Directory -Force -Path C:\clean | Out-Null
           '{}' | Set-Content C:\clean\settings.json
           .\dhun\skills\dhun\install.ps1 -Dir C:\clean | Out-Null
-          Write-Host "===== RAW settings.json ====="
+          Write-Host "===== RAW ====="
           Get-Content C:\clean\settings.json -Raw
-      - name: Strict shape check with python
+      - name: Strict shape check
         shell: bash
-        run: |
-          python -c "
-import json
-cfg=json.load(open('C:/clean/settings.json'))
-h=cfg.get('hooks')
-print('hooks type:', type(h).__name__)
-bad=[]
-for ev,v in (h or {}).items():
-    print(f'  {ev:22} -> {type(v).__name__}')
-    if not isinstance(v,list): bad.append(f'hooks.{ev} is {type(v).__name__}, expected list')
-    else:
-        for i,e in enumerate(v):
-            inner=e.get('hooks')
-            print(f'      [{i}].hooks -> {type(inner).__name__}')
-            if not isinstance(inner,list): bad.append(f'hooks.{ev}[{i}].hooks is {type(inner).__name__}, expected list')
-print()
-print('VERDICT:', 'BROKEN -> ' + '; '.join(bad) if bad else 'all arrays correct')
-"
+        run: python .github/workflows/check_shape.py 'C:/clean/settings.json'
