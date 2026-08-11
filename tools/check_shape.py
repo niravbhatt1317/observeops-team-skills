@@ -14,4 +14,11 @@ for ev, v in (h or {}).items():
         if not isinstance(inner, list):
             bad.append("hooks.%s[%d].hooks is %s, expected list" % (ev, i, type(inner).__name__))
 print()
+perm = cfg.get("permissions")
+if isinstance(perm, dict):
+    for k, v in perm.items():
+        print("  permissions.%-10s -> %s  %r" % (k, type(v).__name__, v))
+        if not isinstance(v, list):
+            bad.append("permissions.%s is %s, expected list" % (k, type(v).__name__))
+print()
 print("VERDICT:", ("BROKEN -> " + "; ".join(bad)) if bad else "all arrays correct")

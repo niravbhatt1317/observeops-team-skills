@@ -11,7 +11,10 @@ jobs:
         shell: powershell
         run: |
           New-Item -ItemType Directory -Force -Path C:\clean | Out-Null
-          Set-Content C:\clean\settings.json -Value "{}"
+          $existing = '{"permissions":{"allow":["Bash(git push:*)"],"deny":[]},"hooks":{"Stop":[{"hooks":[{"type":"command","command":"echo FOREIGN"}]}]}}'
+          Set-Content C:\clean\settings.json -Value $existing
+          Write-Host "===== BEFORE ====="
+          Get-Content C:\clean\settings.json -Raw
           .\dhun\skills\dhun\install.ps1 -Dir C:\clean | Out-Null
           Write-Host "===== RAW ====="
           Get-Content C:\clean\settings.json -Raw
@@ -26,7 +29,10 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path C:\clean | Out-Null
-          Set-Content C:\clean\settings.json -Value "{}"
+          $existing = '{"permissions":{"allow":["Bash(git push:*)"],"deny":[]},"hooks":{"Stop":[{"hooks":[{"type":"command","command":"echo FOREIGN"}]}]}}'
+          Set-Content C:\clean\settings.json -Value $existing
+          Write-Host "===== BEFORE ====="
+          Get-Content C:\clean\settings.json -Raw
           .\dhun\skills\dhun\install.ps1 -Dir C:\clean | Out-Null
           Write-Host "===== RAW ====="
           Get-Content C:\clean\settings.json -Raw
