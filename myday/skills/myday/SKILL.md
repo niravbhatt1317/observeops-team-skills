@@ -17,14 +17,49 @@ Resolve the user's own member id once per session: `sam get /api/admin/me` → `
 
 ## Commands / intents
 
-### setup  (one-time onboarding)
-If `sam check` errors with "no stored password" or `~/bin/sam` is missing, walk them through install:
-1. Confirm `~/bin/sam` and `~/bin/sam_daily.py` exist (the skill ships them in `bin/`; copy to `~/bin`, `chmod +x`).
-2. Have THEM store their password (typed hidden — never ask them to paste it in chat):
-   `security add-generic-password -U -a "<their-email>" -s "samanvaya" -w`
-   (macOS 26 Passwords-app items are NOT CLI-readable — a generic item is required.)
-   Set `SAM_ID` in `~/bin/sam` to their email, or export `SAM_ID`.
-3. `sam login` to verify. Then offer to install reminders (see `reminders`).
+### setup  ("set me up", "install myday", or whenever `sam check` / `sam.ps1 check` fails because nothing is configured yet)
+
+**GUIDED onboarding — do it ONE STEP AT A TIME.** Present a step, have the user run it, confirm the
+result, THEN go to the next. Never dump all steps at once. Number each step and say plainly whether
+**you** run it or **they** run it, and in **which window** (Terminal on Mac, PowerShell on Windows).
+
+**Two hard rules:**
+- **Never ask the user to type or paste their password into chat.** The password only ever goes into
+  the OS secret store (Keychain / DPAPI) via a hidden prompt THEY run in their terminal.
+- Their **Samanvaya email is not secret** — ask for it up front, call it EMAIL, and use it below.
+
+**Before the steps:** detect the OS (`uname` = `Darwin` → macOS; else Windows / `$env:OS`), ask for
+EMAIL, and confirm they're on the **office VPN** (the portal is a private address). If reachability
+fails, stop and tell them to connect the VPN. Then follow their branch. From the cloned repo, `cd`
+into `myday/skills/myday` first so the relative paths below work.
+
+#### macOS  (run in Terminal)
+1. **Scripts →** `mkdir -p ~/bin && cp bin/sam bin/sam_daily.py bin/sam-open-claude ~/bin/ && chmod +x ~/bin/sam ~/bin/sam_daily.py ~/bin/sam-open-claude`
+2. **Your email →** set it: edit the `IDENTIFIER=` line at the top of `~/bin/sam` to EMAIL, or `export SAM_ID="EMAIL"` in the shell profile.
+3. **Password — THEY run this** (it prompts hidden; type it, Enter — never paste in chat):
+   `security add-generic-password -U -a "EMAIL" -s "samanvaya" -w`
+   (macOS 26 Passwords-app items are NOT CLI-readable — this generic item is required.)
+4. **Verify →** `~/bin/sam check` (reachable) then `~/bin/sam login` (should say: logged in as EMAIL).
+5. **Routine →** `bash launchd/setup-morning-hybrid.sh` then `bash launchd/setup-close-hybrid.sh`; confirm with `launchctl list | grep samanvaya`.
+6. (Optional) branded/click-to-open notifications — see `INSTALL-FOR-TEAMMATES.md`.
+
+#### Windows  (run in **Windows PowerShell**)
+Tell them to open **PowerShell**. Note which steps need **them** (password) or a **UAC prompt** (tasks).
+0. **Prereqs →** `claude --version` works, they're signed in, and on the VPN.
+1. **Scripts →** `New-Item -ItemType Directory -Force "$env:USERPROFILE\bin" | Out-Null; Copy-Item .\bin\*.ps1 "$env:USERPROFILE\bin\" -Force`
+2. **Toast module →** `Install-Module BurntToast -Scope CurrentUser`  (answer **Yes** to the prompts)
+3. **Your email →** `setx SAM_ID "EMAIL"`  — then **reopen PowerShell** so it takes effect.
+4. **Password — THEY run these two lines** (the prompt is hidden + DPAPI-encrypted to their account; never paste in chat):
+   `New-Item -ItemType Directory -Force "$env:USERPROFILE\.samanvaya" | Out-Null`
+   `Read-Host -AsSecureString "Samanvaya password" | ConvertFrom-SecureString | Out-File "$env:USERPROFILE\.samanvaya\pw.txt"`
+5. **Install the skill for Claude →** `Copy-Item -Recurse -Force "." "$env:USERPROFILE\.claude\skills\myday"`  (skip if they used `/plugin install myday`)
+6. **Branded toasts →** `curl.exe "http://172.16.15.82:5000/static/samanvaya-icon.png" -o "$env:USERPROFILE\.samanvaya\icon.png"` then `powershell -ExecutionPolicy Bypass -File .\windows\register-appid.ps1`
+7. **Trusted folder (kills the trust prompt) →** `New-Item -ItemType Directory -Force "$env:USERPROFILE\Claude-Projects" | Out-Null`, then **close Claude/VS Code**, then `powershell -ExecutionPolicy Bypass -File .\bin\Trust-Folder.ps1 -Folder "$env:USERPROFILE\Claude-Projects"`
+8. **Click-to-open protocol →** `powershell -ExecutionPolicy Bypass -File .\windows\register-protocol.ps1`
+9. **Schedule the routine (accept the UAC prompt) →** `powershell -ExecutionPolicy Bypass -File .\windows\register-tasks.ps1`
+10. **Verify →** `powershell -File "$env:USERPROFILE\bin\sam.ps1" check` and `... login`; then `Start-Process "myday://plan"` should open a terminal with Claude already planning.
+
+**Finish (either OS):** confirm `sam login` / `sam.ps1 login` succeeds, then offer to run `/myday plan` right now so they see it work. Full written guides: `INSTALL-FOR-TEAMMATES.md` (Mac) · `windows/SETUP-WINDOWS.md` (Windows).
 
 ### plan  ("plan my day")  → earns +5
 1. `sam check`; resolve MID; TODAY = local date.
