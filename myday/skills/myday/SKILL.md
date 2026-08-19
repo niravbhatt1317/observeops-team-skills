@@ -40,8 +40,13 @@ into `myday/skills/myday` first so the relative paths below work.
    `security add-generic-password -U -a "EMAIL" -s "samanvaya" -w`
    (macOS 26 Passwords-app items are NOT CLI-readable — this generic item is required.)
 4. **Verify →** `~/bin/sam check` (reachable) then `~/bin/sam login` (should say: logged in as EMAIL).
-5. **Routine →** `bash launchd/setup-morning-hybrid.sh` then `bash launchd/setup-close-hybrid.sh`; confirm with `launchctl list | grep samanvaya`.
-6. (Optional) branded/click-to-open notifications — see `INSTALL-FOR-TEAMMATES.md`.
+5. **Branded + click-to-open notifications →** first ASK which terminal the click should open —
+   **Warp**, **Terminal**, or **iTerm** (their default/preference) — then run
+   `bash mac/setup-notifications.sh <warp|terminal|iterm>`. It installs `terminal-notifier`, builds the
+   branded **Samanvaya.app** (logo + name), stores the choice in `~/.samanvaya/opener`, writes Warp
+   configs only if Warp, and pre-trusts `~/Claude-Projects` (no trust prompt). Change the terminal later
+   with `echo <warp|terminal|iterm> > ~/.samanvaya/opener`.
+6. **Routine →** `bash launchd/setup-morning-hybrid.sh` then `bash launchd/setup-close-hybrid.sh`; confirm with `launchctl list | grep samanvaya`.
 
 #### Windows  (run in **Windows PowerShell**)
 Tell them to open **PowerShell**. Note which steps need **them** (password) or a **UAC prompt** (tasks).

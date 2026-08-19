@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Opens Claude Code to plan/close the day. Prefers Warp; falls back to Terminal.
-# Uses the claude-max config dir (real login + myday skill) when present, and a
-# natural-language prompt so the `myday` skill auto-triggers.
+# Opens Claude Code to plan/close the day, in the user's chosen terminal.
+# Preference: ~/.samanvaya/opener = warp | terminal | iterm  (default: auto = Warp if installed, else Terminal).
+# Runs in the trusted ~/Claude-Projects with the claude-max config (real login) when present.
 cmd="${1:-plan}"
 case "$cmd" in
   plan)  phrase="plan my day" ;;
@@ -9,14 +9,27 @@ case "$cmd" in
   *)     phrase="$cmd my day" ;;
 esac
 
-# claude-max is an alias (CLAUDE_CONFIG_DIR=~/.claude-max claude); replicate it explicitly.
-CFG="$HOME/.claude-max"
-[ -d "$CFG" ] && PREFIX="CLAUDE_CONFIG_DIR=$CFG " || PREFIX=""
-RUN="${PREFIX}claude \\\"$phrase\\\""
+CFG="$HOME/.claude-max"; [ -d "$CFG" ] && PREFIX="CLAUDE_CONFIG_DIR=$CFG " || PREFIX=""
+WORKDIR="$HOME/Claude-Projects"
+RUN="cd $WORKDIR && ${PREFIX}claude \\\"$phrase\\\""
 
-if [ -d /Applications/Warp.app ]; then
-    /usr/bin/open "warp://launch/myday-$cmd" 2>/dev/null && exit 0
+OPENER=$(cat "$HOME/.samanvaya/opener" 2>/dev/null | tr -d '[:space:]')
+[ -z "$OPENER" ] && OPENER=auto
+if [ "$OPENER" = auto ]; then
+  [ -d /Applications/Warp.app ] && OPENER=warp || OPENER=terminal
 fi
 
+if [ "$OPENER" = warp ]; then
+  /usr/bin/open "warp://launch/myday-$cmd" 2>/dev/null && exit 0
+  OPENER=terminal   # fall back if the Warp URI didn't take
+fi
+
+if [ "$OPENER" = iterm ]; then
+  /usr/bin/osascript -e 'tell application "iTerm" to activate' \
+    -e "tell application \"iTerm\" to tell (create window with default profile) to tell current session to write text \"$RUN\"" && exit 0
+  OPENER=terminal
+fi
+
+# terminal (default / fallback)
 /usr/bin/osascript -e "tell application \"Terminal\" to activate" \
                    -e "tell application \"Terminal\" to do script \"$RUN\""
