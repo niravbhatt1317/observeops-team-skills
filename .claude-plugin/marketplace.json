@@ -32,6 +32,12 @@
       "source": "./dhun",
       "version": "0.2.0",
       "description": "Sound cues for Claude Code: a chime when a turn ends, distinct sounds when Claude needs approval or a tool call fails, and one that fires when you praise it. Install once, works globally."
+    },
+    {
+      "name": "myday",
+      "source": "./myday",
+      "version": "0.1.0",
+      "description": "Plan and close your Samanvaya day through Claude — interactive daily planning, day-close with drafted remarks, task add/status, and a scheduled reminder routine (Mac + Windows). Earns the daily +5/+8. Needs the office VPN."
     }
   ]
 }

@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Opens Claude Code to plan/close the day. Prefers Warp; falls back to Terminal.
+# Uses the claude-max config dir (real login + myday skill) when present, and a
+# natural-language prompt so the `myday` skill auto-triggers.
+cmd="${1:-plan}"
+case "$cmd" in
+  plan)  phrase="plan my day" ;;
+  close) phrase="close my day" ;;
+  *)     phrase="$cmd my day" ;;
+esac
+
+# claude-max is an alias (CLAUDE_CONFIG_DIR=~/.claude-max claude); replicate it explicitly.
+CFG="$HOME/.claude-max"
+[ -d "$CFG" ] && PREFIX="CLAUDE_CONFIG_DIR=$CFG " || PREFIX=""
+RUN="${PREFIX}claude \\\"$phrase\\\""
+
+if [ -d /Applications/Warp.app ]; then
+    /usr/bin/open "warp://launch/myday-$cmd" 2>/dev/null && exit 0
+fi
+
+/usr/bin/osascript -e "tell application \"Terminal\" to activate" \
+                   -e "tell application \"Terminal\" to do script \"$RUN\""

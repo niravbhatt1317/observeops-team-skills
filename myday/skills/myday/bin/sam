@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+# sam — Samanvaya CLI wrapper
+# The password is read from macOS Keychain AT RUNTIME, inside this script.
+# It is never printed, never passed on argv, never written to any transcript.
+set -euo pipefail
+
+# ---------- config ----------
+BASE="${SAM_BASE:-http://172.16.15.82:5000}"
+IDENTIFIER="${SAM_ID:-nirav.bhatt@motadata.com}"   # not secret; your login name
+KC_HOST="${SAM_KC_HOST:-172.16.15.82}"             # Keychain "server" for the internet-password item
+STATE_DIR="${SAM_STATE:-$HOME/.samanvaya}"
+COOKIES="$STATE_DIR/cookies.txt"
+
+mkdir -p "$STATE_DIR"; chmod 700 "$STATE_DIR"
+
+# ---------- reachability (VPN) preflight ----------
+# Returns 0 if the portal answers, 3 if unreachable (likely VPN off / network down).
+reachable() {
+  curl -sS -m 6 -o /dev/null "$BASE/login" 2>/dev/null && return 0 || return 3
+}
+notify() { # macOS desktop notification (best-effort)
+  osascript -e "display notification \"$2\" with title \"$1\"" >/dev/null 2>&1 || true
+}
+require_reachable() {
+  if ! reachable; then
+    echo "sam: cannot reach $BASE — you are probably NOT connected to the VPN (or off the office network)." >&2
+    notify "Samanvaya" "Not reachable — connect the VPN, then retry."
+    exit 3
+  fi
+}
+
+# ---------- secret retrieval (localized; value never leaves this function) ----------
+KC_SERVICE="${SAM_KC_SERVICE:-samanvaya}"          # generic-password item name (CLI-readable)
+get_password() {
+  # macOS 26 Passwords-app items are NOT visible to the `security` CLI, so we read
+  # a classic login-keychain generic item. Fall back to internet-password just in case.
+  security find-generic-password -a "$IDENTIFIER" -s "$KC_SERVICE" -w 2>/dev/null \
+    || security find-generic-password -s "$KC_SERVICE" -w 2>/dev/null \
+    || security find-internet-password -a "$IDENTIFIER" -s "$KC_HOST" -w 2>/dev/null \
+    || { echo "sam: could not read password from Keychain item '$KC_SERVICE'." >&2
+         echo "     Create it once (you type the password, it is not echoed):" >&2
+         echo "       security add-generic-password -U -a \"$IDENTIFIER\" -s \"$KC_SERVICE\" -w" >&2
+         return 1; }
+}
+
+# ---------- API session ----------
+do_login() {
+  local pw http
+  pw="$(get_password)" || exit 1
+  # POST identifier+password as JSON; capture cookie jar + HTTP status. Body of the
+  # request is built inline so the password never appears in a file or in argv.
+  http="$(curl -sS -m 20 -o "$STATE_DIR/login.json" -w '%{http_code}' \
+      -c "$COOKIES" -b "$COOKIES" \
+      -H 'Content-Type: application/json' \
+      --data-binary @<(printf '{"identifier":%s,"password":%s}' \
+                        "$(json_str "$IDENTIFIER")" "$(json_str "$pw")") \
+      "$BASE/api/admin/login")"
+  unset pw
+  chmod 600 "$COOKIES" 2>/dev/null || true
+  if [ "$http" != "200" ]; then
+    echo "sam: login failed (HTTP $http)" >&2
+    cat "$STATE_DIR/login.json" >&2 2>/dev/null || true; echo >&2
+    return 1
+  fi
+  if ! grep -q '"ok"[[:space:]]*:[[:space:]]*true' "$STATE_DIR/login.json"; then
+    echo "sam: login rejected:" >&2; cat "$STATE_DIR/login.json" >&2; echo >&2
+    return 1
+  fi
+  echo "sam: logged in as $IDENTIFIER"
+}
+
+# minimal JSON string encoder (handles quotes/backslashes) via python3
+json_str() { python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$1"; }
+
+# authenticated GET; auto-logs-in once if the session is missing/expired
+api() {
+  local method="$1" path="$2"; shift 2 || true
+  require_reachable
+  local out code
+  out="$(curl -sS -m 25 -b "$COOKIES" -c "$COOKIES" -o "$STATE_DIR/last.out" \
+        -w '%{http_code}' -X "$method" "$@" "$BASE$path" 2>/dev/null)" || true
+  code="$out"
+  if [ "$code" = "401" ] || [ "$code" = "302" ]; then
+    do_login >&2 || return 1
+    code="$(curl -sS -m 25 -b "$COOKIES" -c "$COOKIES" -o "$STATE_DIR/last.out" \
+          -w '%{http_code}' -X "$method" "$@" "$BASE$path" 2>/dev/null)" || true
+  fi
+  cat "$STATE_DIR/last.out"
+  echo
+  echo "[$method $path -> $code]" >&2
+}
+
+usage() {
+  cat >&2 <<'EOF'
+sam — Samanvaya CLI
+  sam login            Authenticate and cache the session cookie
+  sam docs             Pull /api/docs (the API map)
+  sam get <path>       Authenticated GET, e.g.  sam get /api/tasks
+  sam post <path> [json]   Authenticated POST with optional JSON body
+  sam whoami           Show cached login.json
+Env overrides: SAM_BASE, SAM_ID, SAM_KC_HOST, SAM_STATE
+EOF
+}
+
+cmd="${1:-usage}"; shift || true
+case "$cmd" in
+  check)  if reachable; then echo "sam: $BASE reachable ✓"; else echo "sam: $BASE UNREACHABLE (VPN off?)"; exit 3; fi ;;
+  login)  require_reachable; do_login ;;
+  docs)   api GET /api/docs ;;
+  get)    [ $# -ge 1 ] || { echo "usage: sam get <path>" >&2; exit 2; }; api GET "$1" ;;
+  post)   [ $# -ge 1 ] || { echo "usage: sam post <path> [json]" >&2; exit 2; }
+          p="$1"; shift || true
+          if [ $# -ge 1 ]; then api POST "$p" -H 'Content-Type: application/json' --data-binary "$1"
+          else api POST "$p"; fi ;;
+  whoami) cat "$STATE_DIR/login.json" 2>/dev/null || echo "not logged in" ;;
+  *)      usage ;;
+esac
