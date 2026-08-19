@@ -34,6 +34,9 @@ Open Claude Code and run these two commands. Each fenced block below has a
 ```
 /plugin install dhun
 ```
+```
+/plugin install myday
+```
 
 **3. Choose the install scope.** Claude Code will ask *where* to install each one
 and show three options. **Select the first one:**
@@ -92,6 +95,9 @@ When new skills are added or a skill is improved, refresh with:
 ```
 /plugin install dhun
 ```
+```
+/plugin install myday
+```
 
 Then restart Claude Code.
 
@@ -105,6 +111,7 @@ Then restart Claude Code.
 | `tata` | Run it when you're leaving for the day. Creates/updates `CLAUDE.md` (whole-project context) and `HANDOFF.md` (this session's summary, decisions, next steps) so the next Claude session resumes with full context. Default does **not** publish; run `/tata publish` to save **and** go live in one step. |
 | `tatago` | The short "do both" command — saves your context **and** publishes live in one go (same as `/tata publish`). |
 | `dhun` | Gives Claude Code a voice. A chime when a turn finishes, distinct sounds when Claude needs your approval or when a tool call fails, and one that fires back when you say something nice — so you can look away and still know what's happening. Installs globally: every project, every folder, terminal **and** VS Code. Run `/dhun pause` to silence it, `/dhun resume` to bring it back. |
+| `myday` | Plan and close your **Samanvaya** day through Claude — `/myday plan` builds your day (asks what you're working on, +5), `/myday close` drafts remarks and closes (+8), plus `/myday status` and `/myday add`. Ships a scheduled reminder routine (Mac + Windows) with click-to-open notifications. **Needs extra one-time setup** (office VPN + your Samanvaya login) — see below. |
 
 ### Using `/dhun` — hear what Claude is doing
 
@@ -232,6 +239,40 @@ accident.
 
 Next time anyone opens the project, Claude reads `HANDOFF.md` first and already
 knows the full history and the latest state — no "where did we leave off?"
+
+---
+
+### Using `/myday` — run your Samanvaya day through Claude
+
+`myday` is different from the others: it talks to our internal **Samanvaya** portal, so it needs
+a **one-time setup** (it's not "install and go").
+
+**Requirements:** on the office **VPN** (Samanvaya is a private address), and your Samanvaya login.
+
+**Setup (once):** after `/plugin install myday`, clone this repo and follow the guide bundled in the
+skill:
+- **Mac:** `myday/skills/myday/INSTALL-FOR-TEAMMATES.md`
+- **Windows:** `myday/skills/myday/windows/SETUP-WINDOWS.md`
+
+It stores your password in your OS secret store (Keychain / DPAPI — never in chat), installs a small
+login wrapper, and sets up the daily routine.
+
+**Daily use (once set up):**
+
+| Command | What it does |
+|---|---|
+| `/myday plan` | Pulls your tasks, asks what you're taking on today, builds & commits your plan (**+5**) |
+| `/myday close` | Marks done/carried, drafts a remark per item, closes your day (**+8**) |
+| `/myday status` | Today's plan, overdue items, your XP / level / streak |
+| `/myday add "…"` | Quick-add a task to today |
+
+**The routine** nudges you at 9:00 to plan and ~17:35 to close (with silent auto-fallbacks so you
+never lose the points), and posts a team roll-up to the Samanvaya Teams chat each morning. Notifications
+are click-to-open — clicking one launches Claude already planning/closing, no typing.
+
+> **Windows is newly ported and not yet battle-tested** — if you're the first Windows teammate to set
+> it up, follow `SETUP-WINDOWS.md`, run the test steps at the bottom, and report anything that breaks.
+> The Mac path is proven.
 
 ---
 
