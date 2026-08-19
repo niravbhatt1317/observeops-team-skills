@@ -287,7 +287,55 @@ def remind_close():
     if dm: teams_post(dm, "🌆 **Close your day** in Samanvaya — run `/myday close` in Claude (+8)")
     log("close reminder sent")
 
+# ---------------------------------------------------------------- TEAM NUDGES (manager-only)
+# Post to the Teams channel naming reportees who haven't planned / closed yet.
+def _reportees():
+    _, ma, _ = get("/api/admin/member-analytics")
+    return ma if isinstance(ma, list) and len(ma) > 1 else None
+
+def team_plan_laggards():
+    ma = _reportees()
+    if ma is None: return None
+    late = sorted([m for m in ma if not m.get("planned_today")], key=lambda x: x.get("name",""))
+    if not late:
+        return f"✅ **Plan check · {TODAY}** — everyone has planned their day. 🎉"
+    names = ", ".join(m.get("name") for m in late)
+    return (f"🕙 **Plan check · {TODAY}** — not planned yet ({len(late)}/{len(ma)}): {names}\n\n"
+            f"Click your reminder (or run `/myday plan`) to plan your day (+5).")
+
+def team_close_laggards():
+    ma = _reportees()
+    if ma is None: return None
+    late = []
+    for m in ma:
+        _, plan, _ = get(f"/api/day/plan?member_id={m.get('id')}&date={TODAY}")
+        status = ((plan or {}).get("plan") or {}).get("status")
+        if status != "closed":
+            late.append((m.get("name"), "not planned" if status != "planned" else "planned, not closed"))
+    if not late:
+        return f"✅ **Close check · {TODAY}** — everyone has closed their day. 🎉"
+    lines = "; ".join(f"{n} ({s})" for n, s in sorted(late))
+    return (f"🌆 **Close check · {TODAY}** — not closed yet ({len(late)}/{len(ma)}): {lines}\n\n"
+            f"Click your reminder (or run `/myday close`) to close your day (+8).")
+
+def team_plan_nudge():
+    ensure_login()
+    msg = team_plan_laggards()
+    if not msg: log("not a manager / no reportees"); return
+    chan, _ = teams_urls()
+    if chan: teams_post(chan, msg)
+    log("team plan nudge: " + msg.split("\n")[0])
+
+def team_close_nudge():
+    ensure_login()
+    msg = team_close_laggards()
+    if not msg: log("not a manager / no reportees"); return
+    chan, _ = teams_urls()
+    if chan: teams_post(chan, msg)
+    log("team close nudge: " + msg.split("\n")[0])
+
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else "morning"
     {"morning": morning, "close": close,
-     "remind-plan": remind_plan, "remind-close": remind_close}.get(cmd, morning)()
+     "remind-plan": remind_plan, "remind-close": remind_close,
+     "team-plan-nudge": team_plan_nudge, "team-close-nudge": team_close_nudge}.get(cmd, morning)()
