@@ -75,9 +75,23 @@ function Get-PlainPassword {
   finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
 }
 
+function Notify-Retry($title,$msg,$mode){
+  # VPN-off toast with a "Retry" button that re-runs THIS job (via myday://retry/<mode>).
+  try {
+    if (Get-Module -ListAvailable -Name BurntToast) {
+      Import-Module BurntToast -ErrorAction Stop
+      $btn = New-BTButton -Content 'Retry' -Arguments "myday://retry/$mode" -ActivationType Protocol
+      $a = Toast-Args @{ Text=@($title,$msg); Button=$btn }
+      New-BurntToastNotification @a | Out-Null
+      return
+    }
+  } catch {}
+  Notify $title $msg
+}
+
 function Connect-Sam {
   if (-not (Test-Reachable)) {
-    Notify 'Samanvaya' 'Not reachable — connect the VPN. Daily run skipped.'
+    Notify-Retry 'Samanvaya' 'Not reachable — connect the VPN, then click Retry.' $Mode
     Log 'VPN off / unreachable — aborting.'; exit 3
   }
   $pw = Get-PlainPassword

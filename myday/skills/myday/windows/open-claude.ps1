@@ -9,6 +9,16 @@
 param([string]$Uri = 'myday://plan')
 
 $cmd = ($Uri -replace '^myday://','').TrimEnd('/').ToLower()
+
+# Retry action (myday://retry/<mode>): re-run the engine silently for that mode — no Claude window.
+if ($cmd -like 'retry/*') {
+  $mode = ($cmd -replace '^retry/','')
+  $engine = "$env:USERPROFILE\bin\sam_daily.ps1"
+  if (-not (Test-Path $engine)) { $engine = (Resolve-Path (Join-Path $PSScriptRoot '..\bin\sam_daily.ps1')).Path }
+  Start-Process powershell -WindowStyle Hidden -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File',"`"$engine`"",$mode)
+  return
+}
+
 switch ($cmd) {
   'close' { $phrase = 'close my day' }
   default { $phrase = 'plan my day' }
