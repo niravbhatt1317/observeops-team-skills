@@ -57,19 +57,34 @@ def teams_urls():
     except Exception:
         return None, None
 
-def teams_post(url, text):
-    """POST an Adaptive Card — the shape the Teams 'Workflows' webhook expects (no flow editing)."""
+def teams_post(url, text, entities=None):
+    """POST an Adaptive Card (Teams 'Workflows' webhook shape). `entities` = @mention list."""
     if not url: return
+    content = {"$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+               "type": "AdaptiveCard", "version": "1.4",
+               "body": [{"type": "TextBlock", "text": text, "wrap": True}]}
+    if entities:
+        content["msteams"] = {"entities": entities}
     card = {"type": "message", "attachments": [{
-        "contentType": "application/vnd.microsoft.card.adaptive",
-        "content": {"$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
-                    "type": "AdaptiveCard", "version": "1.4",
-                    "body": [{"type": "TextBlock", "text": text, "wrap": True}]}}]}
+        "contentType": "application/vnd.microsoft.card.adaptive", "content": content}]}
     subprocess.run(["/usr/bin/curl", "-sS", "-m", "15", "-X", "POST",
                     "-H", "Content-Type: application/json",
                     "--data-binary", json.dumps(card), url],
                    check=False, capture_output=True)
     log("posted to Teams")
+
+# name -> Teams email (UPN) for @mentions. ~/.samanvaya/team-mentions.json = {"Full Name":"email"}
+def _mentions_map():
+    try:
+        with open(os.path.join(HOME, ".samanvaya", "team-mentions.json")) as f: return json.load(f)
+    except Exception: return {}
+
+def _mention(name, mapp):
+    """Return (token, entity) — a Teams <at> mention if we have the email, else plain name."""
+    email = mapp.get(name)
+    if not email: return name, None
+    tok = f"<at>{name}</at>"
+    return tok, {"type": "mention", "text": tok, "mentioned": {"id": email, "name": name}}
 
 def team_rollup():
     """Manager-only: one-line status per reportee for the shared channel."""
@@ -293,46 +308,46 @@ def _reportees():
     _, ma, _ = get("/api/admin/member-analytics")
     return ma if isinstance(ma, list) and len(ma) > 1 else None
 
-def team_plan_laggards():
+def team_plan_nudge():
+    ensure_login()
     ma = _reportees()
-    if ma is None: return None
+    if ma is None: log("not a manager / no reportees"); return
     late = sorted([m for m in ma if not m.get("planned_today")], key=lambda x: x.get("name",""))
+    chan, _ = teams_urls()
     if not late:
-        return f"✅ **Plan check · {TODAY}** — everyone has planned their day. 🎉"
-    names = ", ".join(m.get("name") for m in late)
-    return (f"🕙 **Plan check · {TODAY}** — not planned yet ({len(late)}/{len(ma)}): {names}\n\n"
-            f"Click your reminder (or run `/myday plan`) to plan your day (+5).")
+        if chan: teams_post(chan, f"✅ **Plan check · {TODAY}** — everyone has planned. 🎉")
+        log("plan check: all planned"); return
+    mapp = _mentions_map(); toks = []; ents = []
+    for m in late:
+        t, e = _mention(m.get("name"), mapp); toks.append(t)
+        if e: ents.append(e)
+    msg = (f"🕙 **Plan check · {TODAY}** — not planned yet ({len(late)}/{len(ma)}): " + ", ".join(toks) +
+           "\n\nClick your reminder or run `/myday plan` (+5).")
+    if chan: teams_post(chan, msg, ents or None)
+    log(f"team plan nudge: {len(late)} not planned")
 
-def team_close_laggards():
+def team_close_nudge():
+    ensure_login()
     ma = _reportees()
-    if ma is None: return None
+    if ma is None: log("not a manager / no reportees"); return
     late = []
     for m in ma:
         _, plan, _ = get(f"/api/day/plan?member_id={m.get('id')}&date={TODAY}")
         status = ((plan or {}).get("plan") or {}).get("status")
         if status != "closed":
-            late.append((m.get("name"), "not planned" if status != "planned" else "planned, not closed"))
+            late.append((m, "not planned" if status != "planned" else "planned, not closed"))
+    chan, _ = teams_urls()
     if not late:
-        return f"✅ **Close check · {TODAY}** — everyone has closed their day. 🎉"
-    lines = "; ".join(f"{n} ({s})" for n, s in sorted(late))
-    return (f"🌆 **Close check · {TODAY}** — not closed yet ({len(late)}/{len(ma)}): {lines}\n\n"
-            f"Click your reminder (or run `/myday close`) to close your day (+8).")
-
-def team_plan_nudge():
-    ensure_login()
-    msg = team_plan_laggards()
-    if not msg: log("not a manager / no reportees"); return
-    chan, _ = teams_urls()
-    if chan: teams_post(chan, msg)
-    log("team plan nudge: " + msg.split("\n")[0])
-
-def team_close_nudge():
-    ensure_login()
-    msg = team_close_laggards()
-    if not msg: log("not a manager / no reportees"); return
-    chan, _ = teams_urls()
-    if chan: teams_post(chan, msg)
-    log("team close nudge: " + msg.split("\n")[0])
+        if chan: teams_post(chan, f"✅ **Close check · {TODAY}** — everyone has closed. 🎉")
+        log("close check: all closed"); return
+    mapp = _mentions_map(); parts = []; ents = []
+    for m, s in sorted(late, key=lambda x: x[0].get("name","")):
+        t, e = _mention(m.get("name"), mapp); parts.append(f"{t} ({s})")
+        if e: ents.append(e)
+    msg = (f"🌆 **Close check · {TODAY}** — not closed yet ({len(late)}/{len(ma)}): " + "; ".join(parts) +
+           "\n\nClick your reminder or run `/myday close` (+8).")
+    if chan: teams_post(chan, msg, ents or None)
+    log(f"team close nudge: {len(late)} not closed")
 
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else "morning"

@@ -1,0 +1,4 @@
+{
+  "__doc__": "Copy to ~/.samanvaya/team-mentions.json. Map each reportee's EXACT Samanvaya display name to their Teams email (UPN). Used to @mention laggards in the team plan/close nudges. Manager-only.",
+  "Full Name As Shown In Samanvaya": "person@motadata.com"
+}

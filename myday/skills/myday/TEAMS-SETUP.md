@@ -75,3 +75,18 @@ python3 ~/bin/sam_daily.py morning        # manager: posts roll-up to channel (i
   readable status anywhere (incl. phone); Mac notification = click-to-open-Claude action.
 - Mac must be awake + on VPN when the scheduled jobs run.
 - "One bot auto-DMs everyone with zero per-person setup" = the central-server model (needs Teams/IT admin).
+
+---
+
+## Manager: team plan/close nudges (@mention who hasn't done it)
+
+At set times, post to the channel naming (and **@mentioning**) reportees who haven't planned / closed.
+
+1. **Enable @mentions:** copy `team-mentions.example.json` → `~/.samanvaya/team-mentions.json` and map
+   each reportee's **exact Samanvaya display name → their Teams email**. Names without an entry just
+   appear as plain text (no ping). `chmod 600` it.
+2. **Schedule the checks:** `bash launchd/setup-team-nudges.sh 11:15 18:30`
+   (plan-check 11:15, close-check 18:30 — change by re-running; remove with `-remove`).
+3. Each run checks live status (`member-analytics` for planned, per-member day-plan for closed) and posts
+   e.g. *"Close check — not closed yet (2/6): @Nikhil (planned, not closed); @Pranjal (planned, not closed)"*,
+   or a "✅ everyone's done 🎉" if none. Requires **workspace access** + a `channel` webhook.
