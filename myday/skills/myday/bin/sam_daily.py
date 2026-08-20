@@ -115,7 +115,9 @@ def notify_retry(title, msg):
         pass
 
 def ensure_login():
-    r = subprocess.run([SAM, "login"], capture_output=True, text=True)
+    # suppress the wrapper's own VPN notification — we show the clickable one below
+    r = subprocess.run([SAM, "login"], capture_output=True, text=True,
+                       env={**os.environ, "SAM_NO_NOTIFY": "1"})
     if r.returncode == 3:
         notify_retry("Samanvaya", "Not reachable — connect the VPN, then click to retry.")
         log("VPN off / unreachable — aborting.")

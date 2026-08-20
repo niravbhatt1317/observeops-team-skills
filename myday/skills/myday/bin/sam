@@ -18,7 +18,8 @@ mkdir -p "$STATE_DIR"; chmod 700 "$STATE_DIR"
 reachable() {
   curl -sS -m 6 -o /dev/null "$BASE/login" 2>/dev/null && return 0 || return 3
 }
-notify() { # macOS desktop notification (best-effort)
+notify() { # macOS desktop notification (best-effort). Suppressed when the engine calls us.
+  [ -n "${SAM_NO_NOTIFY:-}" ] && return 0
   osascript -e "display notification \"$2\" with title \"$1\"" >/dev/null 2>&1 || true
 }
 require_reachable() {
