@@ -27,6 +27,7 @@ def log(m): print(f"[{datetime.datetime.now():%H:%M:%S}] {m}", flush=True)
 _BRANDED = os.path.join(HOME, "Applications", "Samanvaya.app", "Contents", "MacOS", "terminal-notifier")
 TN = _BRANDED if os.path.exists(_BRANDED) else (shutil.which("terminal-notifier") or "/opt/homebrew/bin/terminal-notifier")
 OPENER = os.path.join(HOME, "bin", "sam-open-claude")
+_MODE  = "morning"   # set from argv in __main__; used by the VPN-off retry notification
 
 def notify(title, msg, action=None):
     """action='plan'|'close' -> clickable notification that opens Claude with that command."""
@@ -97,10 +98,26 @@ def team_rollup():
                      f"{m.get('tasks_overdue',0)} overdue, {m.get('tasks_done_today',0)} done today")
     return "\n\n".join(lines)
 
+def notify_retry(title, msg):
+    """VPN-off notification that is CLICKABLE — clicking re-runs THIS same job (after you connect)."""
+    retry = f"/usr/bin/python3 {os.path.join(HOME, 'bin', 'sam_daily.py')} {_MODE}"
+    if os.path.exists(TN):
+        args = [TN, "-title", title, "-message", msg, "-sound", "Basso",
+                "-subtitle", "Connect the VPN, then click to retry →", "-execute", retry]
+        icon = os.path.join(HOME, ".samanvaya", "icon.png")
+        if os.path.exists(icon): args += ["-appIcon", icon, "-contentImage", icon]
+        subprocess.run(args, check=False, capture_output=True); return
+    try:
+        subprocess.run(["osascript", "-e",
+            f'display notification {json.dumps(msg)} with title {json.dumps(title)}'],
+            check=False, capture_output=True)
+    except Exception:
+        pass
+
 def ensure_login():
     r = subprocess.run([SAM, "login"], capture_output=True, text=True)
     if r.returncode == 3:
-        notify("Samanvaya", "Not reachable — connect the VPN. Daily run skipped.")
+        notify_retry("Samanvaya", "Not reachable — connect the VPN, then click to retry.")
         log("VPN off / unreachable — aborting.")
         sys.exit(3)
     if r.returncode != 0:
@@ -351,6 +368,7 @@ def team_close_nudge():
 
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else "morning"
+    _MODE = cmd
     {"morning": morning, "close": close,
      "remind-plan": remind_plan, "remind-close": remind_close,
      "team-plan-nudge": team_plan_nudge, "team-close-nudge": team_close_nudge}.get(cmd, morning)()
