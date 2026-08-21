@@ -23,11 +23,12 @@ $TEAMS  = Join-Path $STATE 'teams.json'
 $ICON   = Join-Path $STATE 'icon.png'
 $AUMID  = if ($env:MYDAY_AUMID) { $env:MYDAY_AUMID } else { 'Motadata.Samanvaya' }
 $TODAY  = (Get-Date).ToString('yyyy-MM-dd')
+$LOGFILE= Join-Path $STATE 'daily.log'
 $script:Session = $null
 $script:MEMBER  = $null
 $script:IsAdmin = $true
 
-function Log($m){ Write-Host ("[{0}] {1}" -f (Get-Date).ToString('HH:mm:ss'), $m) }
+function Log($m){ $line = "[{0}] {1}" -f (Get-Date).ToString('yyyy-MM-dd HH:mm:ss'), $m; Write-Host $line; try { Add-Content -Path $LOGFILE -Value $line } catch {} }
 
 function Toast-Args($base){
   if (Test-Path $ICON) { $base.AppLogo = $ICON }
@@ -219,11 +220,19 @@ function Do-TeamCloseNudge(){
   Log "team close nudge: $($late.Count) not closed"
 }
 
-switch ($Mode) {
-  'morning'          { Do-Morning }
-  'close'            { Do-Close }
-  'remind-plan'      { Do-RemindPlan }
-  'remind-close'     { Do-RemindClose }
-  'team-plan-nudge'  { Do-TeamPlanNudge }
-  'team-close-nudge' { Do-TeamCloseNudge }
+try {
+  switch ($Mode) {
+    'morning'          { Do-Morning }
+    'close'            { Do-Close }
+    'remind-plan'      { Do-RemindPlan }
+    'remind-close'     { Do-RemindClose }
+    'team-plan-nudge'  { Do-TeamPlanNudge }
+    'team-close-nudge' { Do-TeamCloseNudge }
+  }
+} catch {
+  # never crash silently again: record the real error (incl. the server body) to the log
+  Log ("ERROR [$Mode]: " + $_.Exception.Message)
+  $b = ""; try { $r = $_.Exception.Response; if ($r) { $b = (New-Object IO.StreamReader($r.GetResponseStream())).ReadToEnd() } } catch {}
+  if ($b) { Log ("  server: $b") }
+  exit 1
 }
