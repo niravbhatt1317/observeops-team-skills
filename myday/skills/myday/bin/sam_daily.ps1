@@ -90,6 +90,7 @@ function Wallet(){ try { (ApiGet "/api/portal/$($script:MEMBER)/gam/wallet").tot
 function Teams-Urls(){ if (Test-Path $TEAMS) { $c=Get-Content $TEAMS -Raw | ConvertFrom-Json; return @($c.channel,$c.dm) } else { return @($null,$null) } }
 function Teams-Post($url,$text,$entities){
   if (-not $url) { return }
+  if ($DryRun) { Log '(DRY) would post to Teams - skipped'; return }
   $content = [ordered]@{ '$schema'='http://adaptivecards.io/schemas/adaptive-card.json'; type='AdaptiveCard'; version='1.4'; body=@(@{ type='TextBlock'; text=$text; wrap=$true }) }
   if ($entities -and @($entities).Count -gt 0) { $content.msteams = @{ entities = $entities } }
   $card = @{ type='message'; attachments=@(@{ contentType='application/vnd.microsoft.card.adaptive'; content=$content }) }

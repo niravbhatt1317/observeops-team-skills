@@ -62,6 +62,7 @@ def teams_urls():
 def teams_post(url, text, entities=None):
     """POST an Adaptive Card (Teams 'Workflows' webhook shape). `entities` = @mention list."""
     if not url: return
+    if DRY: log("(DRY) would post to Teams - skipped"); return
     content = {"$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
                "type": "AdaptiveCard", "version": "1.4",
                "body": [{"type": "TextBlock", "text": text, "wrap": True}]}
