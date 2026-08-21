@@ -53,26 +53,36 @@ get_password() {
 do_login() {
   local pw http
   pw="$(get_password)" || exit 1
-  # POST identifier+password as JSON; capture cookie jar + HTTP status. Body of the
-  # request is built inline so the password never appears in a file or in argv.
+  # 1) Try ADMIN login (JSON) — managers have command-center access.
   http="$(curl -sS -m 20 -o "$STATE_DIR/login.json" -w '%{http_code}' \
-      -c "$COOKIES" -b "$COOKIES" \
-      -H 'Content-Type: application/json' \
+      -c "$COOKIES" -b "$COOKIES" -H 'Content-Type: application/json' \
       --data-binary @<(printf '{"identifier":%s,"password":%s}' \
                         "$(json_str "$IDENTIFIER")" "$(json_str "$pw")") \
       "$BASE/api/admin/login")"
-  unset pw
-  chmod 600 "$COOKIES" 2>/dev/null || true
-  if [ "$http" != "200" ]; then
-    echo "sam: login failed (HTTP $http)" >&2
-    cat "$STATE_DIR/login.json" >&2 2>/dev/null || true; echo >&2
-    return 1
+  if [ "$http" = "200" ] && grep -q '"ok"[[:space:]]*:[[:space:]]*true' "$STATE_DIR/login.json"; then
+    unset pw; chmod 600 "$COOKIES" 2>/dev/null || true
+    echo "sam: logged in (admin) as $IDENTIFIER"; return 0
   fi
-  if ! grep -q '"ok"[[:space:]]*:[[:space:]]*true' "$STATE_DIR/login.json"; then
-    echo "sam: login rejected:" >&2; cat "$STATE_DIR/login.json" >&2; echo >&2
-    return 1
+  if [ "$http" = "401" ]; then
+    unset pw; echo "sam: login failed — wrong email or password (401)." >&2
+    cat "$STATE_DIR/login.json" >&2 2>/dev/null; echo >&2; return 1
   fi
-  echo "sam: logged in as $IDENTIFIER"
+  # 2) 403 NOT_ADMIN (valid creds, not an admin) → regular member: portal FORM login.
+  #    curl doesn't follow the 302, so we capture the Location redirect for the member_id.
+  local hdr="$STATE_DIR/portal_hdr.txt"
+  http="$(curl -sS -m 20 -o /dev/null -D "$hdr" -w '%{http_code}' \
+      -c "$COOKIES" -b "$COOKIES" \
+      --data-urlencode "identifier=$IDENTIFIER" --data-urlencode "password=$pw" \
+      "$BASE/portal/login")"
+  unset pw; chmod 600 "$COOKIES" 2>/dev/null || true
+  local mid
+  mid="$(grep -i '^location:' "$hdr" 2>/dev/null | grep -oE '/portal/[0-9]+' | grep -oE '[0-9]+' | head -1)"
+  if [ -n "$mid" ]; then
+    printf '{"ok":true,"member_id":%s,"portal":true}' "$mid" > "$STATE_DIR/login.json"
+    echo "sam: logged in (portal) as $IDENTIFIER (member $mid)"; return 0
+  fi
+  echo "sam: login failed (portal HTTP $http — no member redirect; check email/password)." >&2
+  return 1
 }
 
 # minimal JSON string encoder (handles quotes/backslashes) via python3

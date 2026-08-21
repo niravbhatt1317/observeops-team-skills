@@ -17,7 +17,8 @@ HOME   = os.path.expanduser("~")
 SAM    = os.path.join(HOME, "bin", "sam")
 JAR    = os.path.join(HOME, ".samanvaya", "cookies.txt")
 BASE   = os.environ.get("SAM_BASE", "http://172.16.15.82:5000")
-MEMBER = int(os.environ.get("SAM_ID_NUM", "22"))
+MEMBER = int(os.environ.get("SAM_ID_NUM", "22"))   # overwritten from login.json after login
+IS_ADMIN = True                                     # set False on a portal (member) session
 DRY    = os.environ.get("SAM_DRY", "0") == "1"
 BRIEF  = os.path.join(HOME, "Desktop", "Samanvaya-Today.md")
 TODAY  = datetime.date.today().isoformat()
@@ -89,6 +90,7 @@ def _mention(name, mapp):
 
 def team_rollup():
     """Manager-only: one-line status per reportee for the shared channel."""
+    if not IS_ADMIN: return None
     _, ma, _ = get("/api/admin/member-analytics")
     if not isinstance(ma, list) or len(ma) <= 1: return None
     lines = [f"**Samanvaya team status — {TODAY}**"]
@@ -125,7 +127,15 @@ def ensure_login():
     if r.returncode != 0:
         log(f"login failed: {r.stderr.strip()}")
         sys.exit(1)
-    log("logged in")
+    # resolve our member id + whether this is an admin (workspace) or portal (member) session
+    global MEMBER, IS_ADMIN
+    try:
+        lj = json.load(open(os.path.join(HOME, ".samanvaya", "login.json")))
+        if lj.get("member_id"): MEMBER = int(lj["member_id"])
+        IS_ADMIN = not lj.get("portal")   # the portal fallback sets portal:true
+    except Exception:
+        pass
+    log(f"logged in (member {MEMBER}, admin={IS_ADMIN})")
 
 def _curl(args):
     p = subprocess.run(["/usr/bin/curl", "-sS", "-m", "25", "-b", JAR,
@@ -149,7 +159,7 @@ def wallet():
 # ---------------------------------------------------------------- MORNING
 def morning():
     ensure_login()
-    _, plan, _ = get(f"/api/day/plan?member_id={MEMBER}&date={TODAY}")
+    _, plan, _ = get(f"/api/portal/{MEMBER}/day?date={TODAY}")
     plan = plan or {}
     pmeta = plan.get("plan") or {}
     status = pmeta.get("status")
@@ -158,8 +168,11 @@ def morning():
 
     added = []
     if len(items) == 0:
-        _, av, _ = get(f"/api/day/available?member_id={MEMBER}&date={TODAY}")
-        cands = (av or {}).get("assigned", []) if isinstance(av, dict) else []
+        # portal/tasks is a FLAT array; candidates = not-completed tasks not already in the plan
+        _, tasks, _ = get(f"/api/portal/{MEMBER}/tasks")
+        tasks = tasks if isinstance(tasks, list) else []
+        in_plan = {i.get("source_task_id") for i in items}
+        cands = [t for t in tasks if not t.get("completed_at") and t.get("id") not in in_plan]
         def rank(t):
             pr = {"critical":0,"high":1,"medium":2,"low":3}.get(t.get("priority"),4)
             overdue = 0 if (t.get("due_date") and t["due_date"] < TODAY) else 1
@@ -170,12 +183,12 @@ def morning():
             if DRY:
                 added.append(t); log(f"DRY would add task {t['id']} {t.get('title')}")
             else:
-                c, r, _ = post("/api/day/add-from-task",
-                               {"member_id": MEMBER, "date": TODAY, "task_id": t["id"]})
+                c, r, _ = post(f"/api/portal/{MEMBER}/day/add-from-task",
+                               {"date": TODAY, "task_id": t["id"]})
                 if c == 200 and (r or {}).get("ok"):
                     added.append(t); log(f"added task {t['id']} {t.get('title')}")
         # refresh
-        _, plan, _ = get(f"/api/day/plan?member_id={MEMBER}&date={TODAY}")
+        _, plan, _ = get(f"/api/portal/{MEMBER}/day?date={TODAY}")
         plan = plan or {}; pmeta = plan.get("plan") or {}; status = pmeta.get("status")
         items = plan.get("items", [])
 
@@ -203,7 +216,7 @@ def morning():
         teams_post(dm, f"🌅 **Plan your day** — {len(items)} items, {open_n} open. (+5 when you plan)")
 
 def write_brief(plan, added, committed):
-    _, tasks, _ = get("/api/tasks")
+    _, tasks, _ = get(f"/api/portal/{MEMBER}/tasks")
     tasks = tasks or []
     _, disc, _ = get("/api/discussions"); disc = disc or []
     w = wallet()
@@ -252,7 +265,7 @@ def write_brief(plan, added, committed):
 # ---------------------------------------------------------------- CLOSE
 def close():
     ensure_login()
-    _, plan, _ = get(f"/api/day/plan?member_id={MEMBER}&date={TODAY}")
+    _, plan, _ = get(f"/api/portal/{MEMBER}/day?date={TODAY}")
     plan = plan or {}
     pmeta = plan.get("plan") or {}
     if pmeta.get("status") == "closed":
@@ -263,7 +276,7 @@ def close():
 
     # Cross-check REAL task completion — the day-plan item's done-flag can lag the task,
     # which otherwise mislabels a finished task as "carried".
-    _, tasks, _ = get("/api/tasks")
+    _, tasks, _ = get(f"/api/portal/{MEMBER}/tasks")
     done_tasks = {t.get("id") for t in (tasks or []) if t.get("completed_at")}
     close_items, done, carried = [], [], []
     for i in items:
@@ -300,7 +313,7 @@ def close():
 def remind_plan():
     # Only nudge if today isn't planned yet.
     ensure_login()
-    _, plan, _ = get(f"/api/day/plan?member_id={MEMBER}&date={TODAY}")
+    _, plan, _ = get(f"/api/portal/{MEMBER}/day?date={TODAY}")
     if ((plan or {}).get("plan") or {}).get("status") == "planned":
         log("already planned — no plan nudge."); return
     notify("Plan your day 🌅", "Plan today's work with Claude (+5)", action="plan")
@@ -310,7 +323,7 @@ def remind_plan():
 
 def remind_close():
     ensure_login()
-    _, plan, _ = get(f"/api/day/plan?member_id={MEMBER}&date={TODAY}")
+    _, plan, _ = get(f"/api/portal/{MEMBER}/day?date={TODAY}")
     pmeta = (plan or {}).get("plan") or {}
     if pmeta.get("status") == "closed":
         log("already closed — no close nudge."); return
@@ -324,6 +337,7 @@ def remind_close():
 # ---------------------------------------------------------------- TEAM NUDGES (manager-only)
 # Post to the Teams channel naming reportees who haven't planned / closed yet.
 def _reportees():
+    if not IS_ADMIN: return None
     _, ma, _ = get("/api/admin/member-analytics")
     return ma if isinstance(ma, list) and len(ma) > 1 else None
 
