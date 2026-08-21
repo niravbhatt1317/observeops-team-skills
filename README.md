@@ -346,6 +346,11 @@ Remove-Item -Recurse -Force "$env:USERPROFILE\.claude\plugins\cache\temp_local_*
 3. Add an entry to `.claude-plugin/marketplace.json`.
 4. Commit and push. Teammates run the **Getting updates** commands to receive it.
 
+> ⚠️ **Keep every `.ps1` ASCII-only** (no em-dashes, arrows, or smart quotes). Windows PowerShell 5.1
+> misreads BOM-less UTF-8 and fails with cascading `MissingEndParenthesis` errors. CI enforces this
+> via `.github/workflows/ps1-ascii-guard.yml`; check locally with
+> `grep -rlP '[^\x00-\x7f]' --include='*.ps1' .` (should print nothing).
+
 ---
 
 ## Maintainer
