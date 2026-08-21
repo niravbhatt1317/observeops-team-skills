@@ -1,5 +1,5 @@
 <#
-  register-tasks.ps1 — install the Samanvaya daily routine as Windows Scheduled Tasks.
+  register-tasks.ps1 - install the Samanvaya daily routine as Windows Scheduled Tasks.
   Mirrors the macOS launchd setup:
      09:00 remind-plan  |  11:00 remind-plan  |  11:30 auto-plan
      17:35 remind-close |  18:00 auto-close

@@ -1,5 +1,5 @@
 <#
-  register-protocol.ps1 — register the  myday://  URL protocol for the current user (no admin).
+  register-protocol.ps1 - register the  myday://  URL protocol for the current user (no admin).
   Toast buttons open  myday://plan / myday://close , which Windows routes to open-claude.ps1.
   Run:  .\register-protocol.ps1        (remove with -Remove)
 #>

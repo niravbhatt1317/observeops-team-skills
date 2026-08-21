@@ -1,5 +1,5 @@
 <#
-  register-appid.ps1 — brand the toast identity as "Samanvaya" (name + logo).
+  register-appid.ps1 - brand the toast identity as "Samanvaya" (name + logo).
   Registers a custom AppUserModelID so notifications show "Samanvaya" and the logo at the top,
   instead of "Windows PowerShell". Windows twin of the macOS Samanvaya.app.
   Run:  .\register-appid.ps1        (remove with -Remove)

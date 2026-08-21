@@ -1,5 +1,5 @@
 <#
-  Trust-Folder.ps1 — pre-accept Claude Code's folder-trust for a folder, so it never prompts.
+  Trust-Folder.ps1 - pre-accept Claude Code's folder-trust for a folder, so it never prompts.
   Safely merges  projects.<folder>.hasTrustDialogAccepted = $true  into the Claude config JSON.
   RUN WHILE CLAUDE / VS CODE IS CLOSED (Claude rewrites this file on exit).
 

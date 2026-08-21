@@ -1,5 +1,5 @@
 <#
-  install.ps1 (Windows) — one-command myday setup. Run from the skill folder:
+  install.ps1 (Windows) - one-command myday setup. Run from the skill folder:
      powershell -ExecutionPolicy Bypass -File .\windows\install.ps1
   Prompts for your email + password (hidden), then does everything Claude can't
   (it's blocked from secret entry / registry / scheduled tasks by design).
@@ -15,7 +15,7 @@ New-Item -ItemType Directory -Force $STATE, "$env:USERPROFILE\bin", "$env:USERPR
 if (-not $Email) { $Email = Read-Host "Your Samanvaya email" }
 
 Write-Host "`n[1/8] Password (typed hidden, DPAPI-encrypted to you)" -ForegroundColor Cyan
-if (Test-Path "$STATE\pw.txt") { Write-Host "  password already stored — skipping (delete $STATE\pw.txt to re-enter)" }
+if (Test-Path "$STATE\pw.txt") { Write-Host "  password already stored - skipping (delete $STATE\pw.txt to re-enter)" }
 else { Read-Host -AsSecureString "  Samanvaya password" | ConvertFrom-SecureString | Out-File "$STATE\pw.txt"; Write-Host "  saved" }
 
 Write-Host "[2/8] Scripts -> ~\bin (stable location; survives plugin updates)" -ForegroundColor Cyan
@@ -36,7 +36,7 @@ powershell -ExecutionPolicy Bypass -File .\windows\register-appid.ps1
 Write-Host "[6/8] Pre-trust ~\Claude-Projects (CLOSE Claude/VS Code first for this to stick)" -ForegroundColor Cyan
 powershell -ExecutionPolicy Bypass -File .\bin\Trust-Folder.ps1 -Folder "$env:USERPROFILE\Claude-Projects"
 
-if ($NoProtocol) { Write-Host "[7/8] Click-to-open protocol — SKIPPED (-NoProtocol)" -ForegroundColor DarkYellow }
+if ($NoProtocol) { Write-Host "[7/8] Click-to-open protocol - SKIPPED (-NoProtocol)" -ForegroundColor DarkYellow }
 else {
   Write-Host "[7/8] Click-to-open protocol (myday://)" -ForegroundColor Cyan
   powershell -ExecutionPolicy Bypass -File .\windows\register-protocol.ps1

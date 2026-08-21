@@ -1,7 +1,7 @@
 <#
-  open-claude.ps1 — invoked by the myday:// URL protocol when a toast button is clicked.
+  open-claude.ps1 - invoked by the myday:// URL protocol when a toast button is clicked.
   Opens Windows Terminal (or PowerShell) running `claude "<phrase>"` in a TRUSTED folder,
-  so Claude comes up already asking what you're planning — no typing.
+  so Claude comes up already asking what you're planning - no typing.
   Windows parallel of macOS sam-open-claude (which opens Warp).
 
   Arg is the full URI, e.g. "myday://plan" or "myday://close".
@@ -10,7 +10,7 @@ param([string]$Uri = 'myday://plan')
 
 $cmd = ($Uri -replace '^myday://','').TrimEnd('/').ToLower()
 
-# Retry action (myday://retry/<mode>): re-run the engine silently for that mode — no Claude window.
+# Retry action (myday://retry/<mode>): re-run the engine silently for that mode - no Claude window.
 if ($cmd -like 'retry/*') {
   $mode = ($cmd -replace '^retry/','')
   $engine = "$env:USERPROFILE\bin\sam_daily.ps1"
