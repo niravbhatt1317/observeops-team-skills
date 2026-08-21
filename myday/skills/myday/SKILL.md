@@ -49,20 +49,19 @@ into `myday/skills/myday` first so the relative paths below work.
 6. **Routine →** `bash launchd/setup-morning-hybrid.sh` then `bash launchd/setup-close-hybrid.sh`; confirm with `launchctl list | grep samanvaya`.
 
 #### Windows  (run in **Windows PowerShell**)
-Tell them to open **PowerShell**. Note which steps need **them** (password) or a **UAC prompt** (tasks).
-0. **Prereqs →** `claude --version` works, they're signed in, and on the VPN.
-1. **Scripts →** `New-Item -ItemType Directory -Force "$env:USERPROFILE\bin" | Out-Null; Copy-Item .\bin\*.ps1 "$env:USERPROFILE\bin\" -Force`
-2. **Toast module →** `Install-Module BurntToast -Scope CurrentUser`  (answer **Yes** to the prompts)
-3. **Your email →** `setx SAM_ID "EMAIL"`  — then **reopen PowerShell** so it takes effect.
-4. **Password — THEY run these two lines** (the prompt is hidden + DPAPI-encrypted to their account; never paste in chat):
-   `New-Item -ItemType Directory -Force "$env:USERPROFILE\.samanvaya" | Out-Null`
-   `Read-Host -AsSecureString "Samanvaya password" | ConvertFrom-SecureString | Out-File "$env:USERPROFILE\.samanvaya\pw.txt"`
-5. **Install the skill for Claude →** `Copy-Item -Recurse -Force "." "$env:USERPROFILE\.claude\skills\myday"`  (skip if they used `/plugin install myday`)
-6. **Branded toasts →** `curl.exe "http://172.16.15.82:5000/static/samanvaya-icon.png" -o "$env:USERPROFILE\.samanvaya\icon.png"` then `powershell -ExecutionPolicy Bypass -File .\windows\register-appid.ps1`
-7. **Trusted folder (kills the trust prompt) →** `New-Item -ItemType Directory -Force "$env:USERPROFILE\Claude-Projects" | Out-Null`, then **close Claude/VS Code**, then `powershell -ExecutionPolicy Bypass -File .\bin\Trust-Folder.ps1 -Folder "$env:USERPROFILE\Claude-Projects"`
-8. **Click-to-open protocol →** `powershell -ExecutionPolicy Bypass -File .\windows\register-protocol.ps1`
-9. **Schedule the routine (accept the UAC prompt) →** `powershell -ExecutionPolicy Bypass -File .\windows\register-tasks.ps1`
-10. **Verify →** `powershell -File "$env:USERPROFILE\bin\sam.ps1" check` and `... login`; then `Start-Process "myday://plan"` should open a terminal with Claude already planning.
+The plugin cache already has the scripts — no clone needed. Have them open **PowerShell** and `cd` to the
+skill folder (the `/plugin` path, e.g. `...\.claude\plugins\cache\observeops-team-skills\myday\<ver>\skills\myday`).
+Then run the **one-shot installer** — it prompts for their **email** and **password** (hidden) inline, then
+does everything else Claude is blocked from (secret entry, registry, scheduled tasks are user-only by design):
+
+`powershell -ExecutionPolicy Bypass -File .\windows\install.ps1`   (add `-NoProtocol` to skip click-to-open)
+
+It sets up: password (DPAPI), scripts→`~\bin`, BurntToast, `SAM_ID`, branded toast, trusted folder, the
+`myday://` protocol, and the 5 scheduled tasks. Accept any Windows prompts. **Close Claude/VS Code first**
+so the trusted-folder step sticks.
+Prereqs: on the VPN; for click-to-open the `claude` CLI must be on PATH (`claude --version`) — VS Code-only
+users can skip it (`-NoProtocol`) and just run `/myday plan` in the panel when the toast nudges them.
+Verify: `powershell -File "$env:USERPROFILE\bin\sam.ps1" login`, then `Start-Process "myday://plan"`.
 
 **Finish (either OS):** confirm `sam login` / `sam.ps1 login` succeeds, then offer to run `/myday plan` right now so they see it work. Full written guides: `INSTALL-FOR-TEAMMATES.md` (Mac) · `windows/SETUP-WINDOWS.md` (Windows).
 
