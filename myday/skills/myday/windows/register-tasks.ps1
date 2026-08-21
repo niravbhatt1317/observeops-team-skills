@@ -8,8 +8,10 @@
 #>
 param([switch]$Remove)
 $ErrorActionPreference='Stop'
-$engine = Join-Path $PSScriptRoot '..\bin\sam_daily.ps1'
-$engine = (Resolve-Path $engine).Path
+# Register against the STABLE ~\bin copy (a plugin version bump changes the cache path and would
+# orphan the tasks). install.ps1 copies the runtime there; fall back to the cache only if missing.
+$engine = "$env:USERPROFILE\bin\sam_daily.ps1"
+if (-not (Test-Path $engine)) { $engine = (Resolve-Path (Join-Path $PSScriptRoot '..\bin\sam_daily.ps1')).Path }
 $psExe  = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
 
 $jobs = @(

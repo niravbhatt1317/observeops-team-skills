@@ -28,7 +28,11 @@ $ErrorActionPreference = "Stop"
 
 # ---------- config ----------
 $BASE = if ($env:SAM_BASE) { $env:SAM_BASE } else { "http://172.16.15.82:5000" }
-$ID   = if ($env:SAM_ID)   { $env:SAM_ID }   else { "nirav.bhatt@motadata.com" }   # not secret
+# Identity: env SAM_ID, else ~/.samanvaya/id file (scheduled tasks don't inherit setx/shell env). Never guess.
+$ID = if ($env:SAM_ID) { $env:SAM_ID }
+      elseif (Test-Path "$env:USERPROFILE\.samanvaya\id") { (Get-Content "$env:USERPROFILE\.samanvaya\id" -Raw).Trim() }
+      else { $null }
+if (-not $ID) { Write-Error "No identity set. Run: Set-Content `"$env:USERPROFILE\.samanvaya\id`" 'you@motadata.com' (or set SAM_ID)"; exit 2 }
 $STATE= if ($env:SAM_STATE){ $env:SAM_STATE }else { "$env:USERPROFILE\.samanvaya" }
 $PWFILE = Join-Path $STATE "pw.txt"
 New-Item -ItemType Directory -Force $STATE | Out-Null

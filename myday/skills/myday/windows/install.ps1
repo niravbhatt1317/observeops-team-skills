@@ -18,13 +18,15 @@ Write-Host "`n[1/8] Password (typed hidden, DPAPI-encrypted to you)" -Foreground
 if (Test-Path "$STATE\pw.txt") { Write-Host "  password already stored — skipping (delete $STATE\pw.txt to re-enter)" }
 else { Read-Host -AsSecureString "  Samanvaya password" | ConvertFrom-SecureString | Out-File "$STATE\pw.txt"; Write-Host "  saved" }
 
-Write-Host "[2/8] Scripts -> ~\bin" -ForegroundColor Cyan
+Write-Host "[2/8] Scripts -> ~\bin (stable location; survives plugin updates)" -ForegroundColor Cyan
 Copy-Item .\bin\*.ps1 "$env:USERPROFILE\bin\" -Force
+Copy-Item .\windows\open-claude.ps1 "$env:USERPROFILE\bin\" -Force   # needed by the protocol handler
 
 Write-Host "[3/8] BurntToast (toast notifications)" -ForegroundColor Cyan
 if (-not (Get-Module -ListAvailable BurntToast)) { Install-Module BurntToast -Scope CurrentUser -Force -AllowClobber } else { Write-Host "  already installed" }
 
-Write-Host "[4/8] Your email -> SAM_ID" -ForegroundColor Cyan
+Write-Host "[4/8] Your email -> ~/.samanvaya/id (+ SAM_ID)" -ForegroundColor Cyan
+Set-Content -Path "$STATE\id" -Value $Email -NoNewline   # scheduled tasks read this (they don't inherit setx)
 setx SAM_ID $Email | Out-Null; $env:SAM_ID = $Email
 
 Write-Host "[5/8] Samanvaya logo + branded toast identity" -ForegroundColor Cyan

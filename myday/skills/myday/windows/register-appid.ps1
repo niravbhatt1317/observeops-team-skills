@@ -37,5 +37,6 @@ New-ItemProperty -Path $root -Name 'IconBackgroundColor'  -Value 'FF0B0D12' -Pro
 if ($iconPath) { New-ItemProperty -Path $root -Name 'IconUri' -Value $iconPath -PropertyType String -Force | Out-Null }
 
 Write-Host "Registered AUMID '$aumid' as 'Samanvaya'"
-Write-Host "  icon: $([string]::IsNullOrEmpty($iconPath) ? '(none - run step 6 to grab icon.png)' : $iconPath)"
+$iconMsg = if ([string]::IsNullOrEmpty($iconPath)) { '(none - run the icon step to grab icon.png)' } else { $iconPath }
+Write-Host "  icon: $iconMsg"
 Write-Host "Toasts from sam_daily.ps1 will now show under this identity."

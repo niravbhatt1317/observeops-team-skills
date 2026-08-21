@@ -17,7 +17,10 @@ $ErrorActionPreference='Stop'
 
 # ---------- config ----------
 $BASE   = if ($env:SAM_BASE) { $env:SAM_BASE } else { 'http://172.16.15.82:5000' }
-$ID     = if ($env:SAM_ID)   { $env:SAM_ID }   else { 'nirav.bhatt@motadata.com' }
+$ID     = if ($env:SAM_ID) { $env:SAM_ID }
+          elseif (Test-Path "$env:USERPROFILE\.samanvaya\id") { (Get-Content "$env:USERPROFILE\.samanvaya\id" -Raw).Trim() }
+          else { $null }
+if (-not $ID) { Write-Error "No identity set. Run: Set-Content `"$env:USERPROFILE\.samanvaya\id`" 'you@motadata.com' (or set SAM_ID)"; exit 2 }
 $STATE  = if ($env:SAM_STATE){ $env:SAM_STATE }else { "$env:USERPROFILE\.samanvaya" }
 $PWFILE = Join-Path $STATE 'pw.txt'
 $BRIEF  = "$env:USERPROFILE\Desktop\Samanvaya-Today.md"
@@ -32,9 +35,12 @@ $script:MEMBER  = $null
 function Log($m){ Write-Host ("[{0}] {1}" -f (Get-Date).ToString('HH:mm:ss'), $m) }
 
 function Toast-Args($base){
-  # add logo + branded AppId (if the AUMID is registered) to a BurntToast splat
+  # add logo + branded AppId to a BurntToast splat
   if (Test-Path $ICON) { $base.AppLogo = $ICON }
-  if (Test-Path "HKCU:\Software\Classes\AppUserModelId\$AUMID") { $base.AppId = $AUMID }
+  # BurntToast 1.x has no -AppId (only New-BTShortcut does) — setting it throws and drops us to a
+  # message box. Only set it when the installed cmdlet actually supports the parameter.
+  $supportsAppId = (Get-Command New-BurntToastNotification -ErrorAction SilentlyContinue).Parameters.ContainsKey('AppId')
+  if ($supportsAppId -and (Test-Path "HKCU:\Software\Classes\AppUserModelId\$AUMID")) { $base.AppId = $AUMID }
   return $base
 }
 function Notify($title,$msg){

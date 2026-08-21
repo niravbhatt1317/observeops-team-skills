@@ -12,7 +12,9 @@ if ($Remove) {
   Write-Host "Removed myday:// protocol."; exit 0
 }
 
-$launcher = (Resolve-Path (Join-Path $PSScriptRoot 'open-claude.ps1')).Path
+# Point at the STABLE ~\bin copy (survives plugin version bumps); fall back to the cache if missing.
+$launcher = "$env:USERPROFILE\bin\open-claude.ps1"
+if (-not (Test-Path $launcher)) { $launcher = (Resolve-Path (Join-Path $PSScriptRoot 'open-claude.ps1')).Path }
 $psExe    = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
 $command  = "`"$psExe`" -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$launcher`" `"%1`""
 
