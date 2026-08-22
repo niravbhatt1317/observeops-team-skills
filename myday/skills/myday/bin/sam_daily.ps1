@@ -237,6 +237,9 @@ function Do-TeamCloseNudge(){
 try {
   # Skip scheduled runs on weekends. Override: New-Item "$STATE\work-weekends"
   if (((Get-Date).DayOfWeek -eq 'Saturday' -or (Get-Date).DayOfWeek -eq 'Sunday') -and -not (Test-Path (Join-Path $STATE 'work-weekends'))) { Log "weekend - skipping $Mode"; exit 0 }
+  # Skip on company holidays (not Floater Leave). ~/.samanvaya/holidays.json = {"YYYY-MM-DD":"Name"}
+  $holFile = Join-Path $STATE 'holidays.json'
+  if (Test-Path $holFile) { try { $hol = Get-Content $holFile -Raw | ConvertFrom-Json; $hp = $hol.PSObject.Properties[$TODAY]; if ($hp) { Log "holiday ($($hp.Value)) - skipping $Mode"; exit 0 } } catch {} }
   switch ($Mode) {
     'morning'          { Do-Morning }
     'close'            { Do-Close }

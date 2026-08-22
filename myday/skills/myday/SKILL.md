@@ -37,7 +37,7 @@ fails, stop and tell them to connect the VPN. Then follow their branch. From the
 into `myday/skills/myday` first so the relative paths below work.
 
 #### macOS  (run in Terminal)
-1. **Scripts →** `mkdir -p ~/bin && cp bin/sam bin/sam_daily.py bin/sam-open-claude ~/bin/ && chmod +x ~/bin/sam ~/bin/sam_daily.py ~/bin/sam-open-claude`
+1. **Scripts + holidays →** `mkdir -p ~/bin && cp bin/sam bin/sam_daily.py bin/sam-open-claude ~/bin/ && chmod +x ~/bin/sam ~/bin/sam_daily.py ~/bin/sam-open-claude && cp holidays.json ~/.samanvaya/ 2>/dev/null` (holidays.json makes scheduled runs skip company holidays)
 2. **Your email →** set it: edit the `IDENTIFIER=` line at the top of `~/bin/sam` to EMAIL, or `export SAM_ID="EMAIL"` in the shell profile.
 3. **Password — THEY run this** (it prompts hidden; type it, Enter — never paste in chat):
    `security add-generic-password -U -a "EMAIL" -s "samanvaya" -w`

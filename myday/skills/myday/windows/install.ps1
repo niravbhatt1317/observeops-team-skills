@@ -11,6 +11,7 @@ $skill = Split-Path $PSScriptRoot -Parent      # ...\skills\myday
 Set-Location $skill
 $STATE = "$env:USERPROFILE\.samanvaya"
 New-Item -ItemType Directory -Force $STATE, "$env:USERPROFILE\bin", "$env:USERPROFILE\Claude-Projects" | Out-Null
+if (Test-Path "$skill\holidays.json") { Copy-Item "$skill\holidays.json" "$STATE\holidays.json" -Force }  # company holidays -> skip nudges
 
 if (-not $Email) { $Email = Read-Host "Your Samanvaya email" }
 

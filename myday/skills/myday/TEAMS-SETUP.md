@@ -96,3 +96,6 @@ At set times, post to the channel naming (and **@mentioning**) reportees who hav
   To work a weekend: `touch ~/.samanvaya/work-weekends` (Windows: `New-Item "$env:USERPROFILE\.samanvaya\work-weekends"`).
 - **On leave:** copy `on-leave.example.json` -> `~/.samanvaya/on-leave.json` and list names + date ranges.
   People on leave today are **not @mentioned** in the plan/close team nudges. Names must match Samanvaya exactly.
+- **Company holidays:** `holidays.json` (shipped; copied to `~/.samanvaya/` by setup) = `{"YYYY-MM-DD":"Name"}`.
+  On a listed holiday the whole scheduled run skips (no nudges/posts). Floater/optional leaves are NOT
+  listed here (they act as personal leave -> use `on-leave.json`). Edit the file to add future years.

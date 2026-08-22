@@ -405,6 +405,14 @@ if __name__ == "__main__":
     # Skip scheduled runs on weekends (Sat/Sun). Override: touch ~/.samanvaya/work-weekends
     if datetime.date.today().weekday() >= 5 and not os.path.exists(os.path.join(HOME, ".samanvaya", "work-weekends")):
         print(f"[{datetime.datetime.now():%H:%M:%S}] weekend - skipping {cmd}"); sys.exit(0)
+    # Skip on company holidays (not Floater Leave). ~/.samanvaya/holidays.json = {"YYYY-MM-DD":"Name"}
+    try:
+        _hol = json.load(open(os.path.join(HOME, ".samanvaya", "holidays.json")))
+        _hname = _hol.get(TODAY) if isinstance(_hol, dict) else (TODAY if TODAY in _hol else None)
+    except Exception:
+        _hname = None
+    if _hname:
+        print(f"[{datetime.datetime.now():%H:%M:%S}] holiday ({_hname}) - skipping {cmd}"); sys.exit(0)
     {"morning": morning, "close": close,
      "remind-plan": remind_plan, "remind-close": remind_close,
      "team-plan-nudge": team_plan_nudge, "team-close-nudge": team_close_nudge}.get(cmd, morning)()
