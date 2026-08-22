@@ -90,3 +90,9 @@ At set times, post to the channel naming (and **@mentioning**) reportees who hav
 3. Each run checks live status (`member-analytics` for planned, per-member day-plan for closed) and posts
    e.g. *"Close check — not closed yet (2/6): @Nikhil (planned, not closed); @Pranjal (planned, not closed)"*,
    or a "✅ everyone's done 🎉" if none. Requires **workspace access** + a `channel` webhook.
+
+### Weekends & leave
+- **Weekends:** scheduled runs (nudges, auto-plan/close, team posts) skip Sat/Sun automatically.
+  To work a weekend: `touch ~/.samanvaya/work-weekends` (Windows: `New-Item "$env:USERPROFILE\.samanvaya\work-weekends"`).
+- **On leave:** copy `on-leave.example.json` -> `~/.samanvaya/on-leave.json` and list names + date ranges.
+  People on leave today are **not @mentioned** in the plan/close team nudges. Names must match Samanvaya exactly.

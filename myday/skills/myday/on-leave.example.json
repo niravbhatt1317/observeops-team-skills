@@ -1,0 +1,5 @@
+{
+  "__doc__": "Copy to ~/.samanvaya/on-leave.json (manager). Names must match Samanvaya display names exactly. People on leave today are NOT @mentioned in the team plan/close nudges.",
+  "Nikhil Khemaria": [{ "from": "2026-08-25", "to": "2026-08-27" }],
+  "Zeni Chakalasiya": [{ "from": "2026-09-01", "to": "2026-09-01" }]
+}

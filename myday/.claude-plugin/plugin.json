@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "myday",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Plan and close your Samanvaya day through Claude — interactive daily planning, day-close with drafted remarks, quick task add/status, and a scheduled reminder routine (Mac launchd + Windows Task Scheduler). Earns the daily +5/+8. Needs the office VPN.",
   "author": { "name": "Nirav Bhatt", "email": "nirav.bhatt@motadata.com" }
 }

@@ -89,6 +89,19 @@ def _mention(name, mapp):
     tok = f"<at>{name}</at>"
     return tok, {"type": "mention", "text": tok, "mentioned": {"id": email, "name": name}}
 
+def _on_leave_today():
+    """Names on leave today. ~/.samanvaya/on-leave.json = {"Full Name":[{"from":"YYYY-MM-DD","to":"YYYY-MM-DD"}]}."""
+    try:
+        cfg = json.load(open(os.path.join(HOME, ".samanvaya", "on-leave.json")))
+    except Exception:
+        return set()
+    out = set()
+    for name, ranges in (cfg or {}).items():
+        for r in (ranges if isinstance(ranges, list) else []):
+            frm = r.get("from", ""); to = r.get("to", frm)
+            if frm and frm <= TODAY <= to: out.add(name); break
+    return out
+
 def team_rollup():
     """Manager-only: one-line status per reportee for the shared channel."""
     if not IS_ADMIN: return None
@@ -346,7 +359,8 @@ def team_plan_nudge():
     ensure_login()
     ma = _reportees()
     if ma is None: log("not a manager / no reportees"); return
-    late = sorted([m for m in ma if not m.get("planned_today")], key=lambda x: x.get("name",""))
+    leave = _on_leave_today()
+    late = sorted([m for m in ma if not m.get("planned_today") and m.get("name") not in leave], key=lambda x: x.get("name",""))
     chan, _ = teams_urls()
     if not late:
         if chan: teams_post(chan, f"✅ **Plan check · {TODAY}** — everyone has planned. 🎉")
@@ -364,8 +378,10 @@ def team_close_nudge():
     ensure_login()
     ma = _reportees()
     if ma is None: log("not a manager / no reportees"); return
+    leave = _on_leave_today()
     late = []
     for m in ma:
+        if m.get("name") in leave: continue
         _, plan, _ = get(f"/api/day/plan?member_id={m.get('id')}&date={TODAY}")
         status = ((plan or {}).get("plan") or {}).get("status")
         if status != "closed":
@@ -386,6 +402,9 @@ def team_close_nudge():
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else "morning"
     _MODE = cmd
+    # Skip scheduled runs on weekends (Sat/Sun). Override: touch ~/.samanvaya/work-weekends
+    if datetime.date.today().weekday() >= 5 and not os.path.exists(os.path.join(HOME, ".samanvaya", "work-weekends")):
+        print(f"[{datetime.datetime.now():%H:%M:%S}] weekend - skipping {cmd}"); sys.exit(0)
     {"morning": morning, "close": close,
      "remind-plan": remind_plan, "remind-close": remind_close,
      "team-plan-nudge": team_plan_nudge, "team-close-nudge": team_close_nudge}.get(cmd, morning)()

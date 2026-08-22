@@ -191,11 +191,22 @@ function Do-RemindClose {
 }
 
 # ------------------------------------------------ TEAM NUDGES (manager-only)
+function On-Leave-Today(){
+  # names on leave today; ~/.samanvaya/on-leave.json = {"Full Name":[{"from":"YYYY-MM-DD","to":"YYYY-MM-DD"}]}
+  $set = New-Object System.Collections.Generic.HashSet[string]
+  $f = Join-Path $STATE 'on-leave.json'
+  if (Test-Path $f) { try {
+    $cfg = Get-Content $f -Raw | ConvertFrom-Json
+    foreach ($p in $cfg.PSObject.Properties) { foreach ($r in @($p.Value)) { $frm=$r.from; $to = if ($r.to) { $r.to } else { $r.from }; if ($frm -and $frm -le $TODAY -and $TODAY -le $to) { [void]$set.Add($p.Name); break } } }
+  } catch {} }
+  return $set
+}
 function Reportees(){ if (-not $script:IsAdmin) { return $null }; try { $ma = @(ApiGet '/api/admin/member-analytics'); if ($ma.Count -gt 1) { return $ma } } catch {}; return $null }
 function Do-TeamPlanNudge(){
   Connect-Sam
   $ma = Reportees; if (-not $ma) { Log 'not a manager / no reportees'; return }
-  $late = @($ma | Where-Object { -not $_.planned_today } | Sort-Object name)
+  $leave = On-Leave-Today
+  $late = @($ma | Where-Object { -not $_.planned_today -and -not $leave.Contains($_.name) } | Sort-Object name)
   $chan = (Teams-Urls)[0]
   if ($late.Count -eq 0) { if ($chan) { Teams-Post $chan "Plan check - $TODAY - everyone has planned." $null }; Log 'all planned'; return }
   $map = Mentions-Map; $toks=@(); $ents=@()
@@ -207,8 +218,10 @@ function Do-TeamPlanNudge(){
 function Do-TeamCloseNudge(){
   Connect-Sam
   $ma = Reportees; if (-not $ma) { Log 'not a manager / no reportees'; return }
+  $leave = On-Leave-Today
   $late = @()
   foreach ($x in $ma) {
+    if ($leave.Contains($x.name)) { continue }
     $st = $null; try { $p = ApiGet "/api/day/plan?member_id=$($x.id)&date=$TODAY"; $st = $p.plan.status } catch {}
     if ($st -ne 'closed') { $late += [pscustomobject]@{ name=$x.name; s=(if ($st -ne 'planned') {'not planned'} else {'planned, not closed'}) } }
   }
@@ -222,6 +235,8 @@ function Do-TeamCloseNudge(){
 }
 
 try {
+  # Skip scheduled runs on weekends. Override: New-Item "$STATE\work-weekends"
+  if (((Get-Date).DayOfWeek -eq 'Saturday' -or (Get-Date).DayOfWeek -eq 'Sunday') -and -not (Test-Path (Join-Path $STATE 'work-weekends'))) { Log "weekend - skipping $Mode"; exit 0 }
   switch ($Mode) {
     'morning'          { Do-Morning }
     'close'            { Do-Close }

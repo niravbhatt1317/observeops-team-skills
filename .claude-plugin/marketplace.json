@@ -36,7 +36,7 @@
     {
       "name": "myday",
       "source": "./myday",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "description": "Plan and close your Samanvaya day through Claude — interactive daily planning, day-close with drafted remarks, task add/status, and a scheduled reminder routine (Mac + Windows). Earns the daily +5/+8. Needs the office VPN."
     }
   ]
