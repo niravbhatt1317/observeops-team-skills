@@ -1,6 +1,6 @@
 ---
 name: myday
-description: Plan and close your day in Samanvaya through Claude — interactive daily planning, day-close with a suggested remark, quick task add, and status. Use when the user says "plan my day", "close my day", "samanvaya", "add a task to my day", "what's on my plate", or when a Samanvaya reminder notification fired. Earns the daily +5 (plan) and +8 (close) points.
+description: Plan and close your day in Samanvaya through Claude — interactive daily planning, day-close with a suggested remark, an end-of-day work log (drafts today's real tasks from your git/session, you confirm, it writes them to Samanvaya), quick task add, and status. Use when the user says "plan my day", "close my day", "log my day", "log my work", "end of day", "what did I do today", "samanvaya", "add a task", "what's on my plate", or when a Samanvaya reminder fired. Earns the daily +5 (plan) and +8 (close).
 ---
 
 # Samanvaya — daily planning through Claude
@@ -93,6 +93,32 @@ Verify: `powershell -File "$env:USERPROFILE\bin\sam.ps1" login`, then `Start-Pro
 4. Use the PORTAL self-close (the endpoint that awards): `sam post /api/portal/MID/day/close
    '{"date":"TODAY","note":"<day reflection>","items":[{"id":ITEM_ID,"end_status":"done|carried|dropped","remark":"<non-empty>"}, …]}'`.
 5. Confirm and show XP change: `sam get /api/portal/MID/gam/wallet` → total_xp (expect +8), streak.
+
+### log  ("log my day", "log my work", "end of day", "what did I do today")  → writes today's real work to Samanvaya
+**For the user, not for surveillance.** DRAFT -> they CONFIRM/EDIT -> then WRITE. Never write anything unconfirmed.
+Run this in whatever project they were working in (so git/session/handoff are visible).
+
+1. `sam check`; resolve MID; TODAY; figure out NEXTWORK = the next day that is NOT Sat/Sun and NOT in
+   `~/.samanvaya/holidays.json` (usually tomorrow, but Fri -> Mon).
+2. **Gather evidence (read-only, this project):**
+   - `git log --since=midnight --oneline` and `git diff --stat` (today's commits + changed files), if it's a git repo.
+   - What *you* did together in **this session**.
+   - If `HANDOFF.md` exists, read it (done + next steps). Also look for a personal task list:
+     `TODO.md`, `TODOs`, `TASKS.md`, `tasks.md`, `NOTES.md`, or a "## To do"/"## Next"/"## In progress" section in `CLAUDE.md`/`HANDOFF.md`.
+3. **Roll up into a FEW MEANINGFUL tasks** — not per-commit noise. e.g. "Built the NextGen layout experiment",
+   NOT "fixed padding; renamed a var". Aim for ~3-6 items that read like real work units.
+4. **Show the draft. Ask them to edit / merge / drop. Nothing is written yet.**
+5. **Ask (always offer):** *"Anything you worked on outside Claude today to add?"* (Figma, a review, a sync/meeting).
+   Add whatever they give.
+6. **Per-item status** — for each task confirm one: **Done** | **In progress** | **Overdue** (was due earlier, still open).
+7. **Tomorrow:** *"Anything to line up for tomorrow?"* -> due `NEXTWORK`. Suggest from the HANDOFF next-steps / TODO if any.
+8. **Write to Samanvaya** (portal endpoints; create, capturing the returned id):
+   - `sam post /api/portal/MID/tasks '{"title":"…","due_date":"<date>","priority":"medium"}'`
+     · Done / In progress -> `due_date = TODAY` · Overdue -> an earlier `due_date` · Tomorrow -> `NEXTWORK`.
+   - For **Done** items, complete them: `sam post /api/portal/MID/tasks/<id>/complete '{}'` (so they show as "done today").
+   - For today items, optionally pull into the day plan: `sam post /api/portal/MID/day/add-from-task '{"date":"TODAY","task_id":<id>}'`.
+9. **Then ask: *"Want to close your day now?"*** -> if yes, run the `close` recipe (if the day isn't planned yet, offer to plan first).
+10. **Summarize** what landed: created / completed today / lined up for `NEXTWORK`.
 
 ### status  ("what's on my plate", "my status")
 `sam get "/api/portal/MID/day?date=TODAY"`, `sam get /api/portal/MID/tasks`, `sam get /api/portal/MID/gam/wallet`.
